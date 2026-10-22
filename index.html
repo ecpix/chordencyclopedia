@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Chord Encyclopedia</title>
-  <link rel="stylesheet" href="style.css?v=8">
+  <link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
   <header class="topbar">
@@ -45,12 +45,15 @@
       <span><b>☕ Find this helpful? Show some love ❤️</b></span>
       <svg class="ext-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"/></svg>
     </a>
+    <a class="switch-row link-row" href="https://www.skool.com/ecpiano-1707" target="_blank" rel="noopener noreferrer">
+      <span><b>Join the ecpiano community!</b></span>
+      <svg class="ext-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"/></svg>
+    </a>
     <div class="menu-foot"><small>Beta v0.1</small></div>
   </aside>
 
   <main>
     <section class="pickers" id="pickers">
-      <div class="strip" aria-hidden="true"></div>
       <div class="pickcol">
         <div class="picker" id="rootPicker" data-side="left" aria-label="Root note"></div>
         <button type="button" class="acc-btn" id="accBtn">♯♭</button>
@@ -64,18 +67,20 @@
       <h2 id="chordTitle" class="sr-only"></h2>
       <p id="chordFull"></p>
       <table id="noteTable"></table>
-      <div class="play" role="group" aria-label="Play the chord">
-        <button type="button" class="pill" id="playBtn">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg>Play
-        </button>
-        <button type="button" class="pill" id="arpBtn">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><rect x="3" y="14" width="4" height="7" rx="1.5"/><rect x="10" y="9" width="4" height="12" rx="1.5"/><rect x="17" y="3" width="4" height="18" rx="1.5"/></svg>Arpeggio
-        </button>
-      </div>
     </section>
 
     <div id="piano"></div>
     <p class="aliases" id="aliases"></p>
+
+    <div class="play" role="group" aria-label="Play the chord">
+      <button type="button" class="pill" id="playBtn">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg>Play
+      </button>
+      <button type="button" class="pill" id="arpBtn">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><rect x="3" y="14" width="4" height="7" rx="1.5"/><rect x="10" y="9" width="4" height="12" rx="1.5"/><rect x="17" y="3" width="4" height="18" rx="1.5"/></svg>Arpeggio
+      </button>
+    </div>
+
   </main>
 
   <footer>
@@ -83,7 +88,7 @@
     <p>© 2026 <a href="https://www.skool.com/ecpiano-1707" target="_blank" rel="noopener noreferrer">ecpiano</a></p>
   </footer>
 
-  <script src="chords.js?v=8"></script>
-  <script src="app.js?v=8"></script>
+  <script src="chords.js?v=9"></script>
+  <script src="app.js?v=9"></script>
 </body>
 </html>

@@ -51,7 +51,13 @@ function drawPiano(root, notes) {
     const n = lit.get(whites[i].off + 1);
     const x = (i + 1) * WHITE_W - BLACK_W / 2;
     svg.appendChild(el("rect", { x, y: 2, width: BLACK_W, height: BLACK_H }, "black" + state(n)));
-    if (n) svg.appendChild(el("circle", { cx: x + BLACK_W / 2, cy: BLACK_H - 20, r: 7 }, "dot" + (n.isRoot ? " root" : "")));
+    if (n) {
+      const cx = x + BLACK_W / 2;
+      const label = el("text", { x: cx, y: 64 }, "label black-label" + (n.isRoot ? " root" : ""));
+      label.textContent = n.name;
+      svg.appendChild(label);
+      svg.appendChild(el("circle", { cx, cy: BLACK_H - 20, r: 7 }, "dot" + (n.isRoot ? " root" : "")));
+    }
   }
   whites.forEach((w, i) => {
     const n = lit.get(w.off);

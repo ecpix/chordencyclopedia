@@ -63,17 +63,14 @@ h1 { margin: 0; font-size: 1.6rem; color: var(--heading); font-weight: 700; }
 .picker { position: relative; min-width: 0; }
 
 /* Each column is a slice of a big wheel. The selected row sits at the bottom, where the two wheels meet,
-   with two earlier choices above it. The script sets the exact curve of each panel's top corner
+   with two earlier choices above it. The bottom row of each panel is the yellow strip. The script sets the exact curve of each panel's top corner
    (the left wheel like ╮, the right wheel like ╭). */
-.cwheel { position: relative; height: 152px; overflow: hidden; background: var(--panel); border-radius: 14px; touch-action: none;
+.cwheel { position: relative; height: 144px; overflow: hidden; background: linear-gradient(var(--panel) 0 96px, var(--strip) 96px 100%); border-radius: 14px; touch-action: none;
   user-select: none; -webkit-user-select: none; cursor: ns-resize; outline-offset: -2px; }
 .citem { position: absolute; top: 0; z-index: 2; white-space: nowrap; color: var(--muted); font-size: 1.05rem; will-change: transform, opacity; }
 .cwheel.left .citem { right: 12px; }
 .cwheel.right .citem { left: 12px; }
 .citem.selected { color: var(--heading); font-weight: 600; font-size: 1.6rem; }
-
-/* Strip behind the selected row, running from one side button to the other. */
-.strip { position: absolute; left: 0; right: 0; top: 96px; height: 48px; border-radius: 24px; background: var(--strip); pointer-events: none; z-index: 1; }
 
 /* Round buttons on the outer edge of the left wheel (sharps/flats above, list below) and of the right wheel (list). */
 .wheel-btn, .acc-btn { position: absolute; z-index: 3; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 50%;
@@ -110,13 +107,15 @@ h1 { margin: 0; font-size: 1.6rem; color: var(--heading); font-weight: 700; }
 .dot { fill: var(--blue); stroke: #fff; stroke-width: 2; }
 .dot.root { fill: var(--yellow); }
 .label { font: 600 14px var(--font); text-anchor: middle; fill: #1D1D1F; }
+.black-label { fill: #fff; }
+.black-label.root { fill: #1D1D1F; }
 
-.play { display: flex; justify-content: center; gap: 10px; margin-top: 16px; }
+.play { display: flex; justify-content: center; gap: 10px; margin-top: 18px; }
 .pill { display: inline-flex; align-items: center; gap: 8px; border: 0; border-radius: 999px; background: var(--panel); color: var(--heading);
   font: inherit; font-weight: 600; font-size: .95rem; padding: 9px 16px; cursor: pointer; }
 .pill:active { transform: scale(.97); }
 
-.aliases { text-align: center; color: var(--muted); font-size: .85rem; margin: 12px 0 0; min-height: 1.2em; }
+.aliases { text-align: center; color: var(--muted); font-size: 1rem; margin: 14px 0 0; min-height: 1.2em; }
 .aliases:empty { display: none; }
 
 footer { text-align: center; padding-top: 28px; padding-bottom: 36px; font-size: .8rem; color: var(--muted); }
