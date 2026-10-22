@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chord Encyclopedia</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <h1>Chord Encyclopedia</h1>
+    <p class="subtitle">Pick a note and a chord quality to see it on the piano.</p>
+
+    <section class="pickers">
+      <div class="picker" id="rootPicker" aria-label="Root note"></div>
+      <div class="picker" id="qualityPicker" aria-label="Chord quality"></div>
+    </section>
+
+    <section class="result">
+      <h2 id="chordTitle"></h2>
+      <p id="chordNotes"></p>
+    </section>
+
+    <div id="piano"></div>
+  </main>
+  <script src="chords.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

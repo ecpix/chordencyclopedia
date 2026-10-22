@@ -1,0 +1,52 @@
+:root {
+  --bg: #14161c; --panel: #1e212a; --text: #eef0f4; --muted: #9aa1b2;
+  --accent: #4f8cff; --root: #ff7a45;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; }
+main { max-width: 960px; margin: 0 auto; padding: 24px 16px 48px; }
+h1 { margin: 0; font-size: 1.6rem; }
+.subtitle { color: var(--muted); margin: 4px 0 24px; }
+
+.pickers { display: flex; gap: 16px; justify-content: center; }
+.picker { position: relative; flex: 1; max-width: 260px; }
+.wheel {
+  height: 144px; overflow-y: scroll; scroll-snap-type: y mandatory;
+  background: var(--panel); border-radius: 12px; scrollbar-width: none;
+  padding: 48px 0; -webkit-mask-image: linear-gradient(transparent, #000 30%, #000 70%, transparent);
+  mask-image: linear-gradient(transparent, #000 30%, #000 70%, transparent);
+}
+.wheel::-webkit-scrollbar { display: none; }
+.wheel-item {
+  height: 48px; display: flex; align-items: center; justify-content: center;
+  scroll-snap-align: center; color: var(--muted); font-size: 1.05rem; cursor: pointer; text-align: center; padding: 0 8px;
+}
+.wheel-item.selected { color: var(--text); font-weight: 600; font-size: 1.2rem; }
+.picker::after {
+  content: ""; position: absolute; left: 8px; right: 8px; top: 48px; height: 48px;
+  border: 2px solid var(--accent); border-radius: 8px; pointer-events: none;
+}
+.dropdown {
+  position: absolute; z-index: 10; left: 0; right: 0; top: 0; max-height: 300px; overflow-y: auto;
+  background: var(--panel); border: 1px solid #343949; border-radius: 12px; box-shadow: 0 8px 24px #0008;
+}
+.dropdown button {
+  display: block; width: 100%; padding: 12px; background: none; border: 0; color: var(--text);
+  font: inherit; text-align: left; cursor: pointer;
+}
+.dropdown button:hover, .dropdown button.selected { background: #2a2f3d; }
+
+.result { text-align: center; margin: 28px 0 12px; }
+.result h2 { margin: 0; font-size: 2rem; }
+.result p { margin: 4px 0 0; color: var(--muted); font-size: 1.1rem; }
+
+#piano svg { width: 100%; height: auto; display: block; }
+.white { fill: #fafafa; stroke: #222; stroke-width: 1; }
+.black { fill: #111; stroke: #000; }
+.white.on { fill: #9dc0ff; }
+.black.on { fill: #2f66d9; }
+.white.root { fill: #ffb48f; }
+.black.root { fill: #d9541c; }
+.dot { fill: var(--accent); stroke: #fff; stroke-width: 2; }
+.dot.root { fill: var(--root); }
+.label { font: 600 14px system-ui, sans-serif; text-anchor: middle; fill: #222; }
