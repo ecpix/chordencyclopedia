@@ -65,8 +65,9 @@ function fmt(name) {
 }
 
 // Spell one chord tone: the degree picks the letter, the pitch picks the accidental.
-// With avoidDouble, a double sharp/flat is replaced by the simpler enharmonic note.
-function spell(rootName, semitones, degree, avoidDouble) {
+//   opts.avoidDouble  replaces a double sharp/flat with the simpler enharmonic note (Fx -> G)
+//   opts.avoidOdd     replaces B♯, E♯, C♭, F♭ with the natural note they sound like (B♯ -> C)
+function spell(rootName, semitones, degree, opts = {}) {
   const rootLetter = rootName[0];
   const letter = LETTERS[(LETTERS.indexOf(rootLetter) + degree - 1) % 7];
   const rootPc = LETTER_PC[rootLetter] + (rootName[1] === "#" ? 1 : rootName[1] === "b" ? -1 : 0);
@@ -74,9 +75,11 @@ function spell(rootName, semitones, degree, avoidDouble) {
   let diff = (targetPc - LETTER_PC[letter]) % 12;
   if (diff > 6) diff -= 12;
   if (diff < -6) diff += 12;
-  if (avoidDouble && Math.abs(diff) === 2) {
+  if (opts.avoidDouble && Math.abs(diff) === 2) {
     return (diff > 0 ? SIMPLE_SHARP : SIMPLE_FLAT)[targetPc];
   }
+  const odd = (diff === 1 && (letter === "B" || letter === "E")) || (diff === -1 && (letter === "C" || letter === "F"));
+  if (opts.avoidOdd && odd) return SIMPLE_SHARP[targetPc];
   return letter + accidental(diff);
 }
 
@@ -91,10 +94,10 @@ function degreeLabel(semitones, degree) {
 
 // Returns the chord's notes: semitones above the root, spelled name, degree label,
 // and whether it is the root. Placing them on the keyboard is the UI's job.
-function buildChord(rootName, quality, avoidDouble) {
+function buildChord(rootName, quality, opts) {
   return quality.tones.map(([semis, degree], i) => ({
     semis,
-    name: spell(rootName, semis, degree, avoidDouble),
+    name: spell(rootName, semis, degree, opts),
     degree: degreeLabel(semis, degree),
     isRoot: i === 0,
   }));

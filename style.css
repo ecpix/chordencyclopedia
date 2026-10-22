@@ -49,6 +49,7 @@ h1 { margin: 0; font-size: 1.6rem; color: var(--heading); font-weight: 700; }
 .switch-row input:focus-visible, button:focus-visible, a:focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; }
 
 .pickers { display: grid; grid-template-columns: 1fr 2fr; gap: 12px; max-width: 520px; margin: 0 auto; }
+.pickcol { min-width: 0; }
 .picker { position: relative; min-width: 0; }
 .wheel {
   height: 144px; overflow-y: scroll; scroll-snap-type: y mandatory; background: var(--panel);
@@ -69,9 +70,10 @@ h1 { margin: 0; font-size: 1.6rem; color: var(--heading); font-weight: 700; }
 .dropdown button small { color: var(--muted); font-size: .8rem; }
 .dropdown button:hover, .dropdown button.selected { background: var(--panel); }
 
-.accidentals { display: flex; justify-content: center; margin: 14px auto 0; width: max-content; background: var(--panel); border-radius: 12px; padding: 3px; }
-.accidentals button { border: 0; background: none; color: var(--muted); font: inherit; font-weight: 500; padding: 6px 18px; border-radius: 9px; cursor: pointer; min-width: 56px; }
-.accidentals button[aria-pressed="true"] { background: var(--bg); color: var(--heading); font-weight: 700; box-shadow: 0 1px 3px var(--shadow); }
+.accidentals { display: flex; margin: 8px 0 0; width: 100%; background: var(--panel); border-radius: 9px; padding: 2px; }
+.accidentals button { flex: 1; border: 0; background: none; color: var(--muted); font: inherit; font-size: .9rem; line-height: 1;
+  height: 26px; padding: 0; border-radius: 7px; cursor: pointer; }
+.accidentals button[aria-pressed="true"] { background: var(--bg); color: var(--heading); font-weight: 700; box-shadow: 0 1px 2px var(--shadow); }
 
 .result { text-align: center; margin: 22px 0 14px; }
 .result h2 { margin: 0; font-size: 2.2rem; color: var(--heading); font-weight: 700; }
@@ -97,12 +99,27 @@ h1 { margin: 0; font-size: 1.6rem; color: var(--heading); font-weight: 700; }
 .aliases { text-align: center; color: var(--muted); font-size: .85rem; margin: 12px 0 0; min-height: 1.2em; }
 .aliases:empty { display: none; }
 
-footer { text-align: center; padding-top: 28px; padding-bottom: 36px; }
-.coffee { display: inline-block; background: var(--yellow); color: var(--on-yellow); text-decoration: none; font-weight: 600;
-  padding: 10px 20px; border-radius: 999px; box-shadow: 0 2px 6px var(--shadow); }
-.coffee:hover { filter: brightness(1.05); }
-footer p { margin: 14px 0 0; color: var(--muted); font-size: .8rem; }
+footer { text-align: center; padding-top: 28px; padding-bottom: 36px; font-size: .8rem; color: var(--muted); }
+footer p { margin: 4px 0 0; }
+footer a { color: inherit; text-decoration: none; }
+footer a:hover { text-decoration: underline; color: var(--heading); }
 
+/* ---- iPod-style round wheels ---- */
+.pickers.ipod { grid-template-columns: 1fr 1fr; gap: 0; max-width: 560px; }
+.pickers.ipod .picker::after { display: none; }
+.pickers.ipod .accidentals { margin-left: 16px; width: 96px; }
+.rwheel { position: relative; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; outline-offset: -2px; }
+.rwheel.right { margin-left: auto; }
+.rring { position: absolute; top: 0; border-radius: 50%; background: radial-gradient(circle, var(--bg) 0 33.5%, var(--panel) 34.5% 100%); }
+.rwheel.left .rring { left: 0; transform: translateX(-50%); }
+.rwheel.right .rring { right: 0; transform: translateX(50%); }
+.rmark { position: absolute; height: 40px; border: 2px solid var(--ring); border-radius: 10px; pointer-events: none; }
+.ritem { position: absolute; left: 0; top: 0; white-space: nowrap; color: var(--muted); font-size: .95rem; will-change: transform, opacity; }
+.ritem.selected { color: var(--text); font-weight: 600; font-size: 1.05rem; }
+
+@media (max-width: 600px) {
+  .pickers.ipod { margin-left: -16px; margin-right: -16px; }
+}
 @media (max-width: 420px) {
   h1 { font-size: 1.35rem; }
   .result h2 { font-size: 1.9rem; }

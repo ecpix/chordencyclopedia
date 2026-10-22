@@ -1,87 +1,75 @@
 // ---------- Keyboard ----------
-// Piano range: 2 octaves, from F up to the E two octaves later (24 keys).
-const OCTAVES = 2;
-const START_PC = 5; // F
+// The keyboard is always 14 white keys wide (two octaves). It starts on F, but if a chord would not
+// fit in root position (a 9th chord on a high root, for example) the window slides up by whole
+// white keys until it does. So the root is always the lowest note shown.
+const WHITE_CYCLE = [0, 2, 4, 5, 7, 9, 11];   // C D E F G A B
+const WHITE_COUNT = 14;
 const WHITE_W = 40, WHITE_H = 170, BLACK_W = 24, BLACK_H = 106;
-// Keys are numbered by semitones above the lowest F: 0 = F, 1 = F#, ... 11 = E, 12 = F, ... 23 = E.
-const WHITE_OFFSETS = [0, 2, 4, 6, 7, 9, 11];   // F G A B C D E
-const BLACK_AFTER = { 0: 1, 2: 3, 4: 5, 7: 8, 9: 10 }; // white offset -> black offset to its right
+const DEFAULT_START = 3;                      // index of F in WHITE_CYCLE
 
-// Every key has its own on/off state; the chord logic just flips them.
-const keys = [];
-function buildPiano() {
-  const piano = document.getElementById("piano");
+// White keys of a window, each with its semitone distance from the first key.
+function whiteKeys(startCycleIdx) {
+  const whites = [];
+  let off = 0, prev = null;
+  for (let i = 0; i < WHITE_COUNT; i++) {
+    const pc = WHITE_CYCLE[(startCycleIdx + i) % 7];
+    if (prev !== null) off += (pc - prev + 12) % 12;
+    whites.push({ pc, off });
+    prev = pc;
+  }
+  return whites;
+}
+
+// Pick the first window (F, then G, A, ...) where the whole chord fits, root lowest.
+function chooseWindow(root, notes) {
+  const top = Math.max(...notes.map((n) => n.semis));
+  for (let s = 0; s < 7; s++) {
+    const whites = whiteKeys((DEFAULT_START + s) % 7);
+    const rootOff = (root.pc - whites[0].pc + 12) % 12;
+    if (rootOff + top <= whites[WHITE_COUNT - 1].off) return { whites, rootOff };
+  }
+}
+
+function drawPiano(root, notes) {
+  const { whites, rootOff } = chooseWindow(root, notes);
+  const lit = new Map(notes.map((n) => [rootOff + n.semis, n]));
   const svgNS = "http://www.w3.org/2000/svg";
-  const width = OCTAVES * 7 * WHITE_W;
-  const svg = document.createElementNS(svgNS, "svg");
-  svg.setAttribute("viewBox", `0 0 ${width} ${WHITE_H + 8}`);
-  const blackLayer = document.createElementNS(svgNS, "g");
+  const el = (tag, attrs, cls) => {
+    const e = document.createElementNS(svgNS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (cls) e.setAttribute("class", cls);
+    return e;
+  };
+  const svg = el("svg", { viewBox: `0 0 ${WHITE_COUNT * WHITE_W} ${WHITE_H + 8}` });
+  const state = (n) => (n ? " on" + (n.isRoot ? " root" : "") : "");
 
-  let whiteIndex = 0;
-  for (let oct = 0; oct < OCTAVES; oct++) {
-    for (const pc of WHITE_OFFSETS) {
-      const x = whiteIndex * WHITE_W;
-      const rect = document.createElementNS(svgNS, "rect");
-      rect.setAttribute("x", x); rect.setAttribute("y", 2);
-      rect.setAttribute("width", WHITE_W); rect.setAttribute("height", WHITE_H);
-      rect.setAttribute("class", "white");
-      svg.appendChild(rect);
-      const dot = document.createElementNS(svgNS, "circle");
-      dot.setAttribute("cx", x + WHITE_W / 2); dot.setAttribute("cy", WHITE_H - 38); dot.setAttribute("r", 9);
-      dot.setAttribute("class", "dot"); dot.style.display = "none";
-      const label = document.createElementNS(svgNS, "text");
-      label.setAttribute("x", x + WHITE_W / 2); label.setAttribute("y", WHITE_H - 10);
-      label.setAttribute("class", "label");
-      keys[oct * 12 + pc] = { rect, dot, label };
-      whiteIndex++;
-    }
+  whites.forEach((w, i) => {
+    svg.appendChild(el("rect", { x: i * WHITE_W, y: 2, width: WHITE_W, height: WHITE_H }, "white" + state(lit.get(w.off))));
+  });
+  for (let i = 0; i < WHITE_COUNT - 1; i++) {
+    if (whites[i + 1].off - whites[i].off !== 2) continue;         // no black key between E-F or B-C
+    const n = lit.get(whites[i].off + 1);
+    const x = (i + 1) * WHITE_W - BLACK_W / 2;
+    svg.appendChild(el("rect", { x, y: 2, width: BLACK_W, height: BLACK_H }, "black" + state(n)));
+    if (n) svg.appendChild(el("circle", { cx: x + BLACK_W / 2, cy: BLACK_H - 20, r: 7 }, "dot" + (n.isRoot ? " root" : "")));
   }
-  whiteIndex = 0;
-  for (let oct = 0; oct < OCTAVES; oct++) {
-    for (const pc of WHITE_OFFSETS) {
-      const blackPc = BLACK_AFTER[pc];
-      if (blackPc !== undefined) {
-        const x = (whiteIndex + 1) * WHITE_W - BLACK_W / 2;
-        const rect = document.createElementNS(svgNS, "rect");
-        rect.setAttribute("x", x); rect.setAttribute("y", 2);
-        rect.setAttribute("width", BLACK_W); rect.setAttribute("height", BLACK_H);
-        rect.setAttribute("class", "black");
-        const dot = document.createElementNS(svgNS, "circle");
-        dot.setAttribute("cx", x + BLACK_W / 2); dot.setAttribute("cy", BLACK_H - 20); dot.setAttribute("r", 7);
-        dot.setAttribute("class", "dot"); dot.style.display = "none";
-        keys[oct * 12 + blackPc] = { rect, dot, label: null };
-        blackLayer.appendChild(rect); blackLayer.appendChild(dot);
-      }
-      whiteIndex++;
-    }
-  }
-  svg.appendChild(blackLayer);
-  // White-key dots and labels go on top of everything.
-  keys.forEach((k) => { if (k && k.label) { svg.appendChild(k.dot); svg.appendChild(k.label); } });
+  whites.forEach((w, i) => {
+    const n = lit.get(w.off);
+    if (!n) return;
+    const cx = i * WHITE_W + WHITE_W / 2;
+    svg.appendChild(el("circle", { cx, cy: WHITE_H - 38, r: 9 }, "dot" + (n.isRoot ? " root" : "")));
+    const label = el("text", { x: cx, y: WHITE_H - 10 }, "label");
+    label.textContent = n.name;
+    svg.appendChild(label);
+  });
+  const piano = document.getElementById("piano");
+  piano.innerHTML = "";
   piano.appendChild(svg);
-}
-
-function setKey(index, on, isRoot, name) {
-  const k = keys[index];
-  const isWhite = k.label !== null;
-  k.rect.classList.toggle("on", on);
-  k.rect.classList.toggle("root", on && isRoot);
-  k.dot.style.display = on ? "" : "none";
-  k.dot.classList.toggle("root", on && isRoot);
-  if (isWhite) k.label.textContent = on ? name : "";
-}
-
-// Where a chord note lands on the keyboard. The root sits in the first octave; any note that
-// would run past the top is folded down an octave (a 9th on a high root, for example).
-function keyIndex(root, semis) {
-  let idx = ((root.pc - START_PC + 12) % 12) + semis;
-  while (idx >= OCTAVES * 12) idx -= 12;
-  return idx;
 }
 
 // ---------- Settings ----------
 const STORAGE_KEY = "chordencyclopedia.settings";
-const settings = { dark: false, beginner: false, avoidDouble: false, accidentals: "mix" };
+const settings = { dark: false, beginner: false, avoidDouble: false, avoidOdd: true, ipod: false, accidentals: "mix" };
 try { Object.assign(settings, JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}")); } catch (e) {}
 const saveSettings = () => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); } catch (e) {} };
 
@@ -98,10 +86,12 @@ const currentQuality = () => QUALITIES.find((q) => q.key === qualityKey);
 // ---------- Rendering ----------
 function render() {
   const root = ROOTS[rootIndex], quality = currentQuality(), name = rootName(root);
-  const notes = buildChord(name, quality, settings.beginner || settings.avoidDouble);
-
-  keys.forEach((_, i) => keys[i] && setKey(i, false));
-  notes.forEach((n) => setKey(keyIndex(root, n.semis), true, n.isRoot, n.name));
+  // Beginner mode always uses the simplest spellings.
+  const notes = buildChord(name, quality, {
+    avoidDouble: settings.beginner || settings.avoidDouble,
+    avoidOdd: settings.beginner || settings.avoidOdd,
+  });
+  drawPiano(root, notes);
 
   document.getElementById("chordTitle").textContent = chordTitle(name, quality);
   document.getElementById("chordFull").textContent = chordFullName(name, quality);
@@ -110,10 +100,10 @@ function render() {
     "<tr>" + notes.map((n) => cell(n, n.name)).join("") + "</tr>" +
     (settings.beginner ? "" : "<tr>" + notes.map((n) => cell(n, n.degree)).join("") + "</tr>");
   const aliases = settings.beginner ? [] : chordAliases(name, quality);
-  document.getElementById("aliases").textContent = aliases.length ? "Also written: " + aliases.join(" · ") : "";
+  document.getElementById("aliases").textContent = aliases.length ? "Also written as: " + aliases.join(" · ") : "";
 }
 
-// ---------- Wheel ----------
+// ---------- List wheel ----------
 // Combination-lock style wheel. Scroll to pick; tap the selected item to open a dropdown.
 function createWheel(container, getLabel, getSublabel, onChange) {
   const ITEM_H = 48;
@@ -172,23 +162,173 @@ function createWheel(container, getLabel, getSublabel, onChange) {
       mark();
       wheel.scrollTop = index * ITEM_H;
     },
+    layout() {},
   };
 }
 
-const rootWheel = createWheel(document.getElementById("rootPicker"), rootLabel, () => "",
-  (r) => { rootIndex = ROOTS.indexOf(r); render(); });
-const qualityWheel = createWheel(document.getElementById("qualityPicker"), (q) => q.abbr, (q) => q.full,
-  (q) => { qualityKey = q.key; render(); });
+// ---------- iPod-style round wheel ----------
+// A ring whose centre sits on the screen edge, so only a half circle shows. The "left" wheel puts its
+// selected item at 3 o'clock; the "right" wheel is its mirror image (9 o'clock). Drag around the ring to spin.
+function createRoundWheel(container, side, getLabel, loop, onChange) {
+  const STEP = 30;          // degrees between items
+  const FADE = 80;          // items fade out as they near the top and bottom
+  const dir = side === "left" ? 1 : -1;
+  const el = document.createElement("div");
+  el.className = "rwheel " + side;
+  el.tabIndex = 0;
+  el.setAttribute("role", "slider");
+  el.setAttribute("aria-label", container.getAttribute("aria-label") || "Wheel");
+  const ring = document.createElement("div"); ring.className = "rring";
+  const markEl = document.createElement("div"); markEl.className = "rmark";
+  el.append(ring, markEl);
+  container.appendChild(el);
+
+  let options = [], items = [], pos = 0, lastIndex = 0, R = 130, anim = 0;
+  const N = () => options.length;
+  const mod = (a, n) => ((a % n) + n) % n;
+
+  function layout() {
+    const w = container.parentElement.parentElement.clientWidth || 360;   // width of the whole picker row
+    R = Math.min(150, Math.round(w * 0.42));
+    el.style.width = R + "px"; el.style.height = 2 * R + "px";
+    ring.style.width = ring.style.height = 2 * R + "px";
+    const hole = R * 0.34;
+    markEl.style.top = R - 20 + "px";
+    markEl.style[side === "left" ? "left" : "right"] = hole + 3 + "px";
+    markEl.style.width = R - hole - 6 + "px";
+    update();
+  }
+
+  function update() {
+    const n = N(), rT = R * 0.67, sel = mod(Math.round(pos), n);
+    items.forEach((it, k) => {
+      let d = k - pos;
+      if (loop) { d = mod(d, n); if (d > n / 2) d -= n; }
+      const phi = d * STEP, a = (phi * Math.PI) / 180;
+      const x = side === "left" ? rT * Math.cos(a) : R - rT * Math.cos(a);
+      const y = R + rT * Math.sin(a);
+      const o = Math.max(0, 1 - Math.pow(Math.abs(phi) / FADE, 2.2));
+      it.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
+      it.style.opacity = o;
+      it.style.pointerEvents = o < 0.15 ? "none" : "";
+      it.classList.toggle("selected", k === sel);
+    });
+    el.setAttribute("aria-valuetext", options[sel] ? getLabel(options[sel]) : "");
+  }
+
+  function setPos(p) {
+    pos = loop ? p : Math.max(0, Math.min(N() - 1, p));
+    update();
+    const idx = mod(Math.round(pos), N());
+    if (idx !== lastIndex) { lastIndex = idx; onChange(options[idx]); }
+  }
+
+  function animateTo(target, dur = 220) {
+    cancelAnimationFrame(anim);
+    if (!loop) target = Math.max(0, Math.min(N() - 1, target));
+    const from = pos, t0 = performance.now();
+    const frame = (now) => {
+      const t = Math.min(1, (now - t0) / dur);
+      setPos(from + (target - from) * (1 - Math.pow(1 - t, 3)));
+      if (t < 1) anim = requestAnimationFrame(frame);
+    };
+    anim = requestAnimationFrame(frame);
+  }
+
+  // Dragging: follow the finger's angle around the wheel's centre.
+  let drag = null;
+  const angle = (e) => (Math.atan2(e.clientY - drag.cy, (e.clientX - drag.cx) * dir) * 180) / Math.PI;
+  el.addEventListener("pointerdown", (e) => {
+    cancelAnimationFrame(anim);
+    el.setPointerCapture(e.pointerId);
+    const r = el.getBoundingClientRect();
+    drag = { cx: side === "left" ? r.left : r.right, cy: r.top + R, x: e.clientX, y: e.clientY, moved: false,
+             item: e.target.closest(".ritem"), samples: [] };
+    drag.last = angle(e);
+  });
+  el.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 5) drag.moved = true;
+    if (!drag.moved) return;
+    const a = angle(e);
+    let da = a - drag.last;
+    if (da > 180) da -= 360; if (da < -180) da += 360;
+    drag.last = a;
+    setPos(pos - da / STEP);
+    drag.samples.push({ t: performance.now(), a: pos });
+    if (drag.samples.length > 6) drag.samples.shift();
+  });
+  const release = () => {
+    if (!drag) return;
+    const d = drag; drag = null;
+    if (!d.moved) {                                    // a tap: jump to the tapped item
+      if (d.item) {
+        const k = items.indexOf(d.item);
+        let delta = k - pos;
+        if (loop) { delta = mod(delta, N()); if (delta > N() / 2) delta -= N(); }
+        animateTo(pos + delta);
+      }
+      return;
+    }
+    const s = d.samples, first = s[0], lastS = s[s.length - 1];
+    const v = first && lastS && lastS.t > first.t ? (lastS.a - first.a) / (lastS.t - first.t) : 0;   // items per ms
+    animateTo(Math.round(pos + Math.max(-3, Math.min(3, v * 160))), 260);
+  };
+  el.addEventListener("pointerup", release);
+  el.addEventListener("pointercancel", release);
+  el.addEventListener("wheel", (e) => { e.preventDefault(); animateTo(Math.round(pos) + (e.deltaY > 0 ? 1 : -1)); }, { passive: false });
+  el.addEventListener("keydown", (e) => {
+    const step = { ArrowUp: -1, ArrowLeft: -1, ArrowDown: 1, ArrowRight: 1 }[e.key];
+    if (step) { e.preventDefault(); animateTo(Math.round(pos) + step); }
+  });
+
+  return {
+    setOptions(newOptions, newIndex) {
+      cancelAnimationFrame(anim);
+      options = newOptions; pos = lastIndex = newIndex;
+      items.forEach((it) => it.remove());
+      items = options.map((opt) => {
+        const it = document.createElement("div");
+        it.className = "ritem";
+        it.textContent = getLabel(opt);
+        el.appendChild(it);
+        return it;
+      });
+      layout();
+    },
+    layout,
+  };
+}
+
+// ---------- Wheels ----------
+let rootWheel = null, qualityWheel = null, mountedIpod = null;
+const $ = (id) => document.getElementById(id);
+
+function mountWheels() {
+  $("rootPicker").innerHTML = ""; $("qualityPicker").innerHTML = "";
+  $("pickers").classList.toggle("ipod", settings.ipod);
+  const onRoot = (r) => { rootIndex = ROOTS.indexOf(r); render(); };
+  const onQuality = (q) => { qualityKey = q.key; render(); };
+  if (settings.ipod) {
+    rootWheel = createRoundWheel($("rootPicker"), "left", rootLabel, true, onRoot);
+    qualityWheel = createRoundWheel($("qualityPicker"), "right", (q) => q.abbr, false, onQuality);
+  } else {
+    rootWheel = createWheel($("rootPicker"), rootLabel, () => "", onRoot);
+    qualityWheel = createWheel($("qualityPicker"), (q) => q.abbr, (q) => q.full, onQuality);
+  }
+  mountedIpod = settings.ipod;
+}
 
 function refreshWheels() {
+  if (mountedIpod !== settings.ipod) mountWheels();
   rootWheel.setOptions(ROOTS, rootIndex);
   const list = availableQualities();
   if (!list.some((q) => q.key === qualityKey)) qualityKey = "maj";   // e.g. Beginner mode hides this chord
   qualityWheel.setOptions(list, list.findIndex((q) => q.key === qualityKey));
 }
+new ResizeObserver(() => { if (rootWheel) { rootWheel.layout(); qualityWheel.layout(); } }).observe($("pickers"));
 
 // ---------- Menu & toggles ----------
-const $ = (id) => document.getElementById(id);
 const menu = $("menu"), scrim = $("scrim"), menuBtn = $("menuBtn");
 
 function openMenu() { menu.hidden = scrim.hidden = false; menuBtn.setAttribute("aria-expanded", "true"); $("menuClose").focus(); }
@@ -202,21 +342,23 @@ function applySettings() {
   document.documentElement.dataset.theme = settings.dark ? "dark" : "light";
   $("optDark").checked = settings.dark;
   $("optBeginner").checked = settings.beginner;
-  // Beginner mode always avoids double sharps/flats, so that switch shows on and is locked.
+  $("optIpod").checked = settings.ipod;
+  // Beginner mode always uses the simplest spellings, so those switches show on and are locked.
   $("optAvoid").checked = settings.beginner || settings.avoidDouble;
-  $("optAvoid").disabled = settings.beginner;
+  $("optOdd").checked = settings.beginner || settings.avoidOdd;
+  $("optAvoid").disabled = $("optOdd").disabled = settings.beginner;
   $("rowAvoid").classList.toggle("disabled", settings.beginner);
+  $("rowOdd").classList.toggle("disabled", settings.beginner);
   document.querySelectorAll("#accidentals button").forEach((b) =>
     b.setAttribute("aria-pressed", String(b.dataset.mode === settings.accidentals)));
   refreshWheels();
   render();
 }
 
-$("optDark").addEventListener("change", (e) => { settings.dark = e.target.checked; saveSettings(); applySettings(); });
-$("optBeginner").addEventListener("change", (e) => { settings.beginner = e.target.checked; saveSettings(); applySettings(); });
-$("optAvoid").addEventListener("change", (e) => { settings.avoidDouble = e.target.checked; saveSettings(); applySettings(); });
+const bind = (id, key) => $(id).addEventListener("change", (e) => { settings[key] = e.target.checked; saveSettings(); applySettings(); });
+bind("optDark", "dark"); bind("optBeginner", "beginner"); bind("optAvoid", "avoidDouble");
+bind("optOdd", "avoidOdd"); bind("optIpod", "ipod");
 document.querySelectorAll("#accidentals button").forEach((b) =>
   b.addEventListener("click", () => { settings.accidentals = b.dataset.mode; saveSettings(); applySettings(); }));
 
-buildPiano();
 applySettings();
