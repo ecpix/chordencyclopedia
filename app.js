@@ -1,8 +1,10 @@
-// Piano range: 3 octaves from C, enough for chords up to a 9th from any root.
-const OCTAVES = 3;
+// Piano range: 2 octaves, from F up to the E two octaves later (24 keys).
+const OCTAVES = 2;
+const START_PC = 5; // F
 const WHITE_W = 40, WHITE_H = 170, BLACK_W = 24, BLACK_H = 106;
-const WHITE_PCS = [0, 2, 4, 5, 7, 9, 11];
-const BLACK_AFTER = { 0: 1, 2: 3, 5: 6, 7: 8, 9: 10 }; // white-key pc -> black-key pc to its right
+// Keys are numbered by semitones above the lowest F: 0 = F, 1 = F#, ... 11 = E, 12 = F, ... 23 = E.
+const WHITE_OFFSETS = [0, 2, 4, 6, 7, 9, 11];   // F G A B C D E
+const BLACK_AFTER = { 0: 1, 2: 3, 4: 5, 7: 8, 9: 10 }; // white offset -> black offset to its right
 
 // Every key has its own on/off state; the chord logic just flips them.
 const keys = [];
@@ -16,7 +18,7 @@ function buildPiano() {
 
   let whiteIndex = 0;
   for (let oct = 0; oct < OCTAVES; oct++) {
-    for (const pc of WHITE_PCS) {
+    for (const pc of WHITE_OFFSETS) {
       const x = whiteIndex * WHITE_W;
       const rect = document.createElementNS(svgNS, "rect");
       rect.setAttribute("x", x); rect.setAttribute("y", 2);
@@ -35,7 +37,7 @@ function buildPiano() {
   }
   whiteIndex = 0;
   for (let oct = 0; oct < OCTAVES; oct++) {
-    for (const pc of WHITE_PCS) {
+    for (const pc of WHITE_OFFSETS) {
       const blackPc = BLACK_AFTER[pc];
       if (blackPc !== undefined) {
         const x = (whiteIndex + 1) * WHITE_W - BLACK_W / 2;
@@ -68,12 +70,22 @@ function setKey(index, on, isRoot, name) {
   if (isWhite) k.label.textContent = on ? name : "";
 }
 
+// Where a chord note lands on the keyboard. The root sits in the first octave; any note that
+// would run past the top is folded down an octave (a 9th on a high root, for example).
+function keyIndex(root, semis) {
+  let idx = ((root.pc - START_PC + 12) % 12) + semis;
+  while (idx >= OCTAVES * 12) idx -= 12;
+  return idx;
+}
+
 function render(root, quality) {
   keys.forEach((_, i) => keys[i] && setKey(i, false));
   const notes = buildChord(root, quality);
-  notes.forEach((n) => setKey(n.key, true, n.isRoot, n.name));
+  notes.forEach((n) => setKey(keyIndex(root, n.semis), true, n.isRoot, n.name));
   document.getElementById("chordTitle").textContent = chordTitle(root, quality);
-  document.getElementById("chordNotes").textContent = notes.map((n) => n.name).join(" – ");
+  document.getElementById("noteTable").innerHTML =
+    "<tr><th>Note</th>" + notes.map((n) => `<td${n.isRoot ? ' class="root"' : ""}>${n.name}</td>`).join("") + "</tr>" +
+    "<tr><th>Degree</th>" + notes.map((n) => `<td${n.isRoot ? ' class="root"' : ""}>${n.degree}</td>`).join("") + "</tr>";
 }
 
 // Combination-lock style wheel. Scroll to pick; tap the selected item to open a dropdown.

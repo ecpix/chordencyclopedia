@@ -63,12 +63,22 @@ function spell(rootName, semitones, degree) {
   return letter + accidental(diff);
 }
 
-// Returns the chord's notes: key index counted from the lowest C on the keyboard
-// (0 = C, 1 = C#, ... 12 = next C), plus the spelled name and whether it is the root.
+// Semitones above the root for each degree of the major scale (9 = 2 an octave up).
+const MAJOR_OFFSET = { 1: 0, 2: 2, 3: 4, 4: 5, 5: 7, 6: 9, 7: 11, 9: 14 };
+
+// Degree label as a pianist reads it: 1, ♭3, 5, ♭7, 9 ...
+function degreeLabel(semitones, degree) {
+  const diff = semitones - MAJOR_OFFSET[degree];
+  return accidental(diff) + degree;
+}
+
+// Returns the chord's notes: semitones above the root, spelled name, degree label,
+// and whether it is the root. Placing them on the keyboard is the UI's job.
 function buildChord(root, quality) {
   return quality.tones.map(([semis, degree], i) => ({
-    key: root.pc + semis,
+    semis,
     name: spell(root.name, semis, degree),
+    degree: degreeLabel(semis, degree),
     isRoot: i === 0,
   }));
 }

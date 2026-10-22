@@ -1,6 +1,6 @@
 :root {
   --bg: #14161c; --panel: #1e212a; --text: #eef0f4; --muted: #9aa1b2;
-  --accent: #4f8cff; --root: #ff7a45;
+  --accent: #004AAD; --root: #F2B60E; --accent-light: #8FB4EA; --root-light: #F9DE8F; --ring: #4f8cff;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; }
@@ -24,7 +24,7 @@ h1 { margin: 0; font-size: 1.6rem; }
 .wheel-item.selected { color: var(--text); font-weight: 600; font-size: 1.2rem; }
 .picker::after {
   content: ""; position: absolute; left: 8px; right: 8px; top: 48px; height: 48px;
-  border: 2px solid var(--accent); border-radius: 8px; pointer-events: none;
+  border: 2px solid var(--ring); border-radius: 8px; pointer-events: none;
 }
 .dropdown {
   position: absolute; z-index: 10; left: 0; right: 0; top: 0; max-height: 300px; overflow-y: auto;
@@ -38,15 +38,20 @@ h1 { margin: 0; font-size: 1.6rem; }
 
 .result { text-align: center; margin: 28px 0 12px; }
 .result h2 { margin: 0; font-size: 2rem; }
-.result p { margin: 4px 0 0; color: var(--muted); font-size: 1.1rem; }
+#noteTable { margin: 12px auto 0; border-collapse: collapse; font-size: 1.1rem; }
+#noteTable th { text-align: right; padding: 4px 14px 4px 0; color: var(--muted); font-weight: 400; font-size: .85rem; }
+#noteTable td { min-width: 56px; padding: 4px 10px; text-align: center; border-left: 1px solid #343949; }
+#noteTable td.root { color: var(--root); font-weight: 700; }
+#noteTable tr:last-child td { color: var(--muted); }
+#noteTable tr:last-child td.root { color: var(--root); }
 
 #piano svg { width: 100%; height: auto; display: block; }
 .white { fill: #fafafa; stroke: #222; stroke-width: 1; }
 .black { fill: #111; stroke: #000; }
-.white.on { fill: #9dc0ff; }
-.black.on { fill: #2f66d9; }
-.white.root { fill: #ffb48f; }
-.black.root { fill: #d9541c; }
+.white.on { fill: var(--accent-light); }
+.black.on { fill: var(--accent); }
+.white.root { fill: var(--root-light); }
+.black.root { fill: var(--root); }
 .dot { fill: var(--accent); stroke: #fff; stroke-width: 2; }
 .dot.root { fill: var(--root); }
 .label { font: 600 14px system-ui, sans-serif; text-anchor: middle; fill: #222; }
