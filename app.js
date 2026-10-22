@@ -69,16 +69,16 @@ function drawPiano(root, notes) {
 
 // ---------- Settings ----------
 const STORAGE_KEY = "chordencyclopedia.settings";
-const settings = { dark: false, beginner: false, avoidDouble: false, avoidOdd: true, bottom: false, accidentals: "mix" };
+const settings = { dark: false, beginner: false, avoidDouble: false, avoidOdd: true, accidentals: "mix" };
 try { Object.assign(settings, JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}")); } catch (e) {}
 const saveSettings = () => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); } catch (e) {} };
 
 let rootIndex = 0;           // C
 let qualityKey = "min";      // start on C minor
 
+// "mix" is Auto: D♭ E♭ F♯ A♭ B♭. "sharp" and "flat" force one kind of accidental.
 const rootName = (root) => root[settings.accidentals];
-const rootLabel = (root) =>
-  settings.accidentals === "mix" && root.sharp !== root.flat ? fmt(root.sharp) + "/" + fmt(root.flat) : fmt(rootName(root));
+const rootLabel = (root) => fmt(rootName(root));
 const availableQualities = () =>
   settings.beginner ? QUALITIES.filter((q) => q.beginner).sort((a, b) => a.beginner - b.beginner) : QUALITIES;
 const currentQuality = () => QUALITIES.find((q) => q.key === qualityKey);
@@ -93,7 +93,7 @@ function render() {
   });
   drawPiano(root, notes);
 
-  document.getElementById("chordTitle").textContent = chordTitle(name, quality);
+  document.getElementById("chordTitle").textContent = chordTitle(name, quality);   // read by screen readers only
   document.getElementById("chordFull").textContent = chordFullName(name, quality);
   const cell = (n, text) => `<td${n.isRoot ? ' class="root"' : ""}><span>${text}</span></td>`;
   document.getElementById("noteTable").innerHTML =
@@ -104,16 +104,14 @@ function render() {
 }
 
 // ---------- Curved wheel ----------
-// An endless wheel. The rows are laid out along a big circle, so the selected row sits nearest the
-// middle of the screen and the other rows are indented away from it.
-//   normal layout:  previous / selected / next, selected row in the middle (a bulge, like  ) ( )
-//   bottom layout:  two earlier rows above the selected row at the bottom (a quarter circle, like  ╮╭ )
-// Drag, scroll or use the arrow keys to spin; tap the selected row or the round button for a full list.
+// An endless wheel. The selected row sits at the bottom, where the two wheels meet, with two earlier
+// rows above it. The rows follow a big curve, so the rows above are pushed away from the middle and
+// each panel's top corner is rounded to match (the left wheel like ╮, the right wheel like ╭).
+// Drag, scroll or use the arrow keys to spin; the round button opens a full list.
 function createWheel(container, side, getLabel, getSublabel, onChange) {
   const ROW = 48;
-  const MIDDLE = { cy: 72, arc: 86 };    // y of the selected row's centre, radius of the circle the rows follow
-  const BOTTOM = { cy: 120, arc: 120 };
-  const geom = () => (settings.bottom ? BOTTOM : MIDDLE);
+  const CY = 120;          // y of the selected row's centre
+  const VR = 120;          // vertical radius of the curve (selected row up to the top of the panel)
   const el = document.createElement("div");
   el.className = "cwheel " + side;
   el.tabIndex = 0;
@@ -121,26 +119,35 @@ function createWheel(container, side, getLabel, getSublabel, onChange) {
   el.setAttribute("aria-label", container.getAttribute("aria-label") || "Wheel");
   container.appendChild(el);
 
-  let options = [], items = [], pos = 0, lastIndex = 0, anim = 0, dropdown = null, openedAt = 0;
+  let options = [], items = [], pos = 0, lastIndex = 0, anim = 0, dropdown = null, openedAt = 0, hr = 150;
   const len = () => options.length;
   const mod = (x, n) => ((x % n) + n) % n;
   const shortest = (d) => { d = mod(d, len()); return d > len() / 2 ? d - len() : d; };
 
+  // The curve is an ellipse HR wide and VR tall. Rows are indented by how far the curve has moved in.
+  function shape() {
+    const w = el.clientWidth;
+    if (!w) return;
+    hr = Math.max(60, Math.min(150, w - 22));
+    el.style.borderRadius = side === "left"
+      ? `14px ${hr}px 14px 14px / 14px ${VR}px 14px 14px`
+      : `${hr}px 14px 14px 14px / ${VR}px 14px 14px 14px`;
+  }
+
   function update() {
-    const g = geom(), sel = mod(Math.round(pos), len());
+    const sel = mod(Math.round(pos), len());
     items.forEach((it, k) => {
       const d = shortest(k - pos), ad = Math.abs(d), dy = d * ROW;
-      const off = g.arc - Math.sqrt(Math.max(0, g.arc * g.arc - dy * dy));     // how far this row curves away
-      let o;
-      if (settings.bottom) o = d > 0 ? Math.max(0, 1 - d * 2) : ad <= 1 ? 1 - 0.4 * ad : Math.max(0, 0.6 - 0.3 * (ad - 1));
-      else o = ad <= 1 ? 1 - 0.45 * ad : Math.max(0, 0.55 * (1 - (ad - 1) / 0.7));
-      it.style.transform = `translate(${side === "left" ? -off : off}px, ${g.cy + dy}px) translateY(-50%)`;
+      const off = hr * (1 - Math.sqrt(Math.max(0, 1 - (dy * dy) / (VR * VR))));
+      const o = d > 0 ? Math.max(0, 1 - d * 2) : ad <= 1 ? 1 - 0.4 * ad : Math.max(0, 0.6 - 0.3 * (ad - 1));
+      it.style.transform = `translate(${side === "left" ? -off : off}px, ${CY + dy}px) translateY(-50%)`;
       it.style.opacity = o;
       it.style.visibility = o <= 0 ? "hidden" : "visible";
       it.classList.toggle("selected", k === sel);
     });
     el.setAttribute("aria-valuetext", options[sel] ? String(getLabel(options[sel])) : "");
   }
+  new ResizeObserver(() => { shape(); update(); }).observe(el);
 
   // The selection follows the wheel live, so the chord updates while you spin.
   function setPos(p) {
@@ -162,7 +169,7 @@ function createWheel(container, side, getLabel, getSublabel, onChange) {
   }
   const goTo = (i) => animateTo(pos + shortest(i - pos));
 
-  // ----- the full list, with the spelled-out names -----
+  // ----- the full list (round button), with the spelled-out names -----
   const closeDropdown = () => { if (dropdown) { dropdown.remove(); dropdown = null; } };
   const openDropdown = () => {
     closeDropdown();
@@ -185,7 +192,6 @@ function createWheel(container, side, getLabel, getSublabel, onChange) {
   };
   document.addEventListener("click", (e) => { if (dropdown && !container.contains(e.target)) closeDropdown(); });
 
-  // A small round button on the outer side of the wheel opens the same list.
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "wheel-btn";
@@ -214,10 +220,9 @@ function createWheel(container, side, getLabel, getSublabel, onChange) {
   const release = () => {
     if (!drag) return;
     const d = drag; drag = null;
-    if (!d.moved) {          // a tap: the selected row opens the list, a row above or below steps to it
-      const row = Math.round((d.y - el.getBoundingClientRect().top - geom().cy) / ROW);
-      if (row === 0) openDropdown();
-      else animateTo(Math.round(pos) + Math.max(settings.bottom ? -2 : -1, Math.min(settings.bottom ? 0 : 1, row)));
+    if (!d.moved) {          // a tap on a row above the selected one steps to it
+      const row = Math.round((d.y - el.getBoundingClientRect().top - CY) / ROW);
+      if (row < 0) animateTo(Math.round(pos) + Math.max(-2, row));
       return;
     }
     const s = d.samples, first = s[0], last = s[s.length - 1];
@@ -246,9 +251,9 @@ function createWheel(container, side, getLabel, getSublabel, onChange) {
         el.appendChild(it);
         return it;
       });
+      shape();
       update();
     },
-    update,
   };
 }
 
@@ -259,39 +264,66 @@ const rootWheel = createWheel($("rootPicker"), "left", rootLabel, () => "",
 const qualityWheel = createWheel($("qualityPicker"), "right", (q) => q.abbr, (q) => q.full,
   (q) => { qualityKey = q.key; render(); });
 
-// The highlight box is a fixed size: wide enough for the longest note plus the longest chord type.
-const hl = document.querySelector(".hl");
-let maxWidths = null;
-function measure(labels) {
-  const probe = document.createElement("span");
-  probe.className = "citem selected";
-  probe.style.cssText = "visibility:hidden;left:0;right:auto";
-  document.body.appendChild(probe);
-  const widest = Math.max(...labels.map((l) => { probe.textContent = l; return probe.getBoundingClientRect().width; }));
-  probe.remove();
-  return widest;
-}
-function updateHighlight() {
-  if (!maxWidths) maxWidths = {
-    note: measure(ROOTS.map((r) => fmt(r.sharp) + "/" + fmt(r.flat))),
-    quality: measure(QUALITIES.map((q) => q.abbr)),
-  };
-  const TEXT_PAD = 12, PAD = 10;      // text inset inside each wheel, extra room inside the box
-  const base = $("pickers").getBoundingClientRect(), a = $("rootPicker").getBoundingClientRect(), b = $("qualityPicker").getBoundingClientRect();
-  const left = a.right - TEXT_PAD - maxWidths.note - PAD, right = b.left + TEXT_PAD + maxWidths.quality + PAD;
-  hl.style.left = left - base.left + "px";
-  hl.style.width = right - left + "px";
-}
-new ResizeObserver(updateHighlight).observe($("pickers"));
-if (document.fonts) document.fonts.ready.then(() => { maxWidths = null; updateHighlight(); });
-
 function refreshWheels() {
   rootWheel.setOptions(ROOTS, rootIndex);
   const list = availableQualities();
   if (!list.some((q) => q.key === qualityKey)) qualityKey = "maj";   // e.g. Beginner mode hides this chord
   qualityWheel.setOptions(list, list.findIndex((q) => q.key === qualityKey));
-  updateHighlight();
 }
+
+// ---------- Sound ----------
+// A simple piano-like tone made in the browser (no audio files): a few harmonics with a quick
+// attack and a slow decay, higher notes dying away faster.
+const HARMONICS = [0, 1, 0.5, 0.3, 0.18, 0.1, 0.06];
+const HARMONIC_SUM = HARMONICS.reduce((s, h) => s + h, 0);
+const ARPEGGIO_STEP = 0.2;           // seconds between notes of an arpeggio
+let audio = null;
+
+// Schedules the notes on any audio context (a live one, or an offline one for tests).
+function renderChord(ctx, dest, midiNotes, arpeggio, t0) {
+  const wave = ctx.createPeriodicWave(new Float32Array(HARMONICS.length), Float32Array.from(HARMONICS));
+  const master = ctx.createGain();
+  master.gain.value = 0.8 / (HARMONIC_SUM * Math.sqrt(midiNotes.length));
+  master.connect(dest);
+  midiNotes.forEach((m, i) => {
+    const freq = 440 * Math.pow(2, (m - 69) / 12);
+    const t = t0 + (arpeggio ? i * ARPEGGIO_STEP : 0);
+    const decay = Math.max(0.9, Math.min(3, 2.8 * Math.pow(261.6 / freq, 0.45)));
+    const osc = ctx.createOscillator();
+    osc.setPeriodicWave(wave);
+    osc.frequency.value = freq;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(1, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + decay);
+    osc.connect(g); g.connect(master);
+    osc.start(t); osc.stop(t + decay + 0.05);
+  });
+  return master;
+}
+
+// The lowest note is never below G3, so chords always sit around middle C (G3 up to F#4 for the root).
+function chordMidiNotes(root, quality) {
+  const base = 55 + ((root.pc - 7 + 12) % 12);
+  return quality.tones.map(([semis]) => base + semis);
+}
+
+function playChord(arpeggio) {
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) return;
+  if (!audio) {
+    const ctx = new Ctx();
+    const comp = ctx.createDynamicsCompressor();
+    comp.connect(ctx.destination);
+    audio = { ctx, comp, master: null };
+  }
+  const { ctx, comp } = audio;
+  if (ctx.state === "suspended") ctx.resume();
+  if (audio.master) audio.master.gain.setTargetAtTime(0, ctx.currentTime, 0.04);   // fade out what is still ringing
+  audio.master = renderChord(ctx, comp, chordMidiNotes(ROOTS[rootIndex], currentQuality()), arpeggio, ctx.currentTime + 0.05);
+}
+$("playBtn").addEventListener("click", () => playChord(false));
+$("arpBtn").addEventListener("click", () => playChord(true));
 
 // ---------- Menu & toggles ----------
 const menu = $("menu"), scrim = $("scrim"), menuBtn = $("menuBtn");
@@ -303,11 +335,15 @@ $("menuClose").addEventListener("click", closeMenu);
 scrim.addEventListener("click", closeMenu);
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !menu.hidden) closeMenu(); });
 
+// One button that cycles Auto -> sharps -> flats and shows the current choice.
+const ACCIDENTAL_MODES = [
+  { mode: "mix",   symbol: "♯♭", name: "Auto" },
+  { mode: "sharp", symbol: "♯",  name: "Sharps" },
+  { mode: "flat",  symbol: "♭",  name: "Flats" },
+];
+
 function applySettings() {
   document.documentElement.dataset.theme = settings.dark ? "dark" : "light";
-  document.documentElement.dataset.layout = settings.bottom ? "bottom" : "middle";
-  maxWidths = null;                       // the selected text size depends on the layout
-  $("optBottom").checked = settings.bottom;
   $("themeBtn").setAttribute("aria-label", settings.dark ? "Switch to light mode" : "Switch to dark mode");
   $("themeBtn").title = settings.dark ? "Light mode" : "Dark mode";
   $("optBeginner").checked = settings.beginner;
@@ -317,17 +353,21 @@ function applySettings() {
   $("optAvoid").disabled = $("optOdd").disabled = settings.beginner;
   $("rowAvoid").classList.toggle("disabled", settings.beginner);
   $("rowOdd").classList.toggle("disabled", settings.beginner);
-  document.querySelectorAll("#accidentals button").forEach((b) =>
-    b.setAttribute("aria-pressed", String(b.dataset.mode === settings.accidentals)));
+  const acc = ACCIDENTAL_MODES.find((m) => m.mode === settings.accidentals) || ACCIDENTAL_MODES[0];
+  $("accBtn").textContent = acc.symbol;
+  $("accBtn").setAttribute("aria-label", `Sharps and flats: ${acc.name}. Tap to change.`);
+  $("accBtn").title = `Sharps and flats: ${acc.name}`;
   refreshWheels();
   render();
 }
 
 const bind = (id, key) => $(id).addEventListener("change", (e) => { settings[key] = e.target.checked; saveSettings(); applySettings(); });
-bind("optBeginner", "beginner"); bind("optAvoid", "avoidDouble");
-bind("optOdd", "avoidOdd"); bind("optBottom", "bottom");
+bind("optBeginner", "beginner"); bind("optAvoid", "avoidDouble"); bind("optOdd", "avoidOdd");
 $("themeBtn").addEventListener("click", () => { settings.dark = !settings.dark; saveSettings(); applySettings(); });
-document.querySelectorAll("#accidentals button").forEach((b) =>
-  b.addEventListener("click", () => { settings.accidentals = b.dataset.mode; saveSettings(); applySettings(); }));
+$("accBtn").addEventListener("click", () => {
+  const i = ACCIDENTAL_MODES.findIndex((m) => m.mode === settings.accidentals);
+  settings.accidentals = ACCIDENTAL_MODES[(i + 1) % ACCIDENTAL_MODES.length].mode;
+  saveSettings(); applySettings();
+});
 
 applySettings();
