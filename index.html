@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Chord Encyclopedia</title>
-  <link rel="stylesheet" href="style.css?v=6">
+  <link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
   <header class="topbar">
@@ -41,10 +41,14 @@
       <span><b>Avoid C♭, B♯, E♯ &amp; F♭</b><small>Shows B, C, F and E instead. Turn off to see them.</small></span>
       <input type="checkbox" id="optOdd" role="switch">
     </label>
-    <div class="menu-foot">
-      <a href="https://sociabuzz.com/ecpi_x/tribe" target="_blank" rel="noopener noreferrer">☕ Enjoying this? Show some love ❤️</a>
-      <small>Beta v0.1</small>
-    </div>
+    <label class="switch-row">
+      <span><b>Chord on the bottom</b><small>Experimental. The chord sits at the bottom of the wheels, with earlier choices above it.</small></span>
+      <input type="checkbox" id="optBottom" role="switch">
+    </label>
+    <a class="switch-row link-row" href="https://sociabuzz.com/ecpi_x/tribe" target="_blank" rel="noopener noreferrer">
+      <span><b>☕ Enjoying this? Show some love ❤️</b></span>
+    </a>
+    <div class="menu-foot"><small>Beta v0.1</small></div>
   </aside>
 
   <main>
@@ -78,7 +82,7 @@
     <p>© 2026 <a href="https://www.skool.com/ecpiano-1707" target="_blank" rel="noopener noreferrer">ecpiano</a></p>
   </footer>
 
-  <script src="chords.js?v=6"></script>
-  <script src="app.js?v=6"></script>
+  <script src="chords.js?v=7"></script>
+  <script src="app.js?v=7"></script>
 </body>
 </html>

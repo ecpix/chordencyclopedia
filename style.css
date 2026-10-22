@@ -43,11 +43,11 @@ h1 { margin: 0; font-size: 1.6rem; color: var(--heading); font-weight: 700; }
 :root[data-theme="dark"] .icon-moon { display: none; }
 :root[data-theme="dark"] .icon-sun { display: block; }
 .menu-foot { margin-top: auto; padding-top: 28px; text-align: center; }
-.menu-foot a { display: inline-block; padding: 8px 0; color: var(--text); text-decoration: none; font-size: 1rem; }
-.menu-foot a:hover { color: var(--heading); }
 .menu-foot small { display: block; margin-top: 6px; color: var(--muted); font-size: .75rem; }
 .switch-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--line); cursor: pointer; }
 .switch-row small { display: block; color: var(--muted); font-size: .8rem; margin-top: 2px; font-weight: 400; }
+.link-row { color: inherit; text-decoration: none; }
+.link-row:hover b { color: var(--heading); }
 .switch-row.disabled { opacity: .55; cursor: default; }
 .switch-row input { appearance: none; -webkit-appearance: none; flex: none; width: 48px; height: 28px; border-radius: 14px;
   background: var(--line); position: relative; cursor: inherit; transition: background .15s; }
@@ -71,9 +71,25 @@ h1 { margin: 0; font-size: 1.6rem; color: var(--heading); font-weight: 700; }
 .cwheel.left .citem { right: 12px; }
 .cwheel.right .citem { left: 12px; }
 .citem.selected { color: var(--text); font-weight: 600; font-size: 1.2rem; }
-/* One highlight box in the middle, sized by the script to just fit the selected note and chord type. */
-.hl { position: absolute; top: 48px; height: 48px; left: 50%; width: 0; border: 2px solid var(--ring); border-radius: 12px; pointer-events: none; z-index: 2;
-  transition: left .12s ease, width .12s ease; }
+/* One highlight box at the meeting point of the wheels. The script sizes it to fit the longest note + chord type. */
+.hl { position: absolute; top: 48px; height: 48px; left: 50%; width: 0; border: 2px solid var(--ring); border-radius: 12px; pointer-events: none; z-index: 2; }
+
+/* Small round button on the outer side of each wheel that opens the full list. */
+.wheel-btn { position: absolute; top: 55px; z-index: 3; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 50%;
+  background: var(--bg); color: var(--heading); box-shadow: 0 1px 3px var(--shadow); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.picker[data-side="left"] .wheel-btn { left: 10px; }
+.picker[data-side="right"] .wheel-btn { right: 10px; }
+
+/* "Chord on the bottom" layout: the selected row sits at the bottom with two earlier choices above,
+   and each panel's top corner is a quarter circle (the left one like ╮, the right one like ╭). */
+:root[data-layout="bottom"] .cwheel { height: 152px; }
+:root[data-layout="bottom"] .cwheel.left  { border-radius: 14px 120px 14px 14px / 14px 120px 14px 14px; }
+:root[data-layout="bottom"] .cwheel.right { border-radius: 120px 14px 14px 14px / 120px 14px 14px 14px; }
+:root[data-layout="bottom"] .hl { top: 96px; }
+:root[data-layout="bottom"] .wheel-btn { top: 103px; }
+:root[data-layout="bottom"] .citem.selected { font-size: 1.45rem; color: var(--heading); }
+:root[data-layout="bottom"] #chordTitle { display: none; }
+:root[data-layout="bottom"] .result { margin-top: 18px; }
 .dropdown { position: absolute; z-index: 10; left: 0; top: 0; width: 100%; min-width: 170px; max-height: 300px; overflow-y: auto;
   background: var(--bg); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 24px var(--shadow); }
 .dropdown button { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; width: 100%; padding: 12px; background: none;

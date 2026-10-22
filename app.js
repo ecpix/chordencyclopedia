@@ -69,7 +69,7 @@ function drawPiano(root, notes) {
 
 // ---------- Settings ----------
 const STORAGE_KEY = "chordencyclopedia.settings";
-const settings = { dark: false, beginner: false, avoidDouble: false, avoidOdd: true, accidentals: "mix" };
+const settings = { dark: false, beginner: false, avoidDouble: false, avoidOdd: true, bottom: false, accidentals: "mix" };
 try { Object.assign(settings, JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}")); } catch (e) {}
 const saveSettings = () => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); } catch (e) {} };
 
@@ -104,11 +104,16 @@ function render() {
 }
 
 // ---------- Curved wheel ----------
-// An endless wheel that shows three rows (previous, selected, next). The rows are laid out along a
-// big circle, so the selected row sits nearest the middle of the screen and its neighbours are
-// indented away from it. Drag, scroll or use the arrow keys to spin; tap the selected row for a list.
+// An endless wheel. The rows are laid out along a big circle, so the selected row sits nearest the
+// middle of the screen and the other rows are indented away from it.
+//   normal layout:  previous / selected / next, selected row in the middle (a bulge, like  ) ( )
+//   bottom layout:  two earlier rows above the selected row at the bottom (a quarter circle, like  ╮╭ )
+// Drag, scroll or use the arrow keys to spin; tap the selected row or the round button for a full list.
 function createWheel(container, side, getLabel, getSublabel, onChange) {
-  const ROW = 48, HEIGHT = 144, ARC = 86;   // row spacing, wheel height, radius of the circle the rows follow
+  const ROW = 48;
+  const MIDDLE = { cy: 72, arc: 86 };    // y of the selected row's centre, radius of the circle the rows follow
+  const BOTTOM = { cy: 120, arc: 120 };
+  const geom = () => (settings.bottom ? BOTTOM : MIDDLE);
   const el = document.createElement("div");
   el.className = "cwheel " + side;
   el.tabIndex = 0;
@@ -116,25 +121,25 @@ function createWheel(container, side, getLabel, getSublabel, onChange) {
   el.setAttribute("aria-label", container.getAttribute("aria-label") || "Wheel");
   container.appendChild(el);
 
-  let options = [], items = [], pos = 0, lastIndex = 0, anim = 0, dropdown = null;
+  let options = [], items = [], pos = 0, lastIndex = 0, anim = 0, dropdown = null, openedAt = 0;
   const len = () => options.length;
   const mod = (x, n) => ((x % n) + n) % n;
   const shortest = (d) => { d = mod(d, len()); return d > len() / 2 ? d - len() : d; };
 
   function update() {
-    const sel = mod(Math.round(pos), len());
+    const g = geom(), sel = mod(Math.round(pos), len());
     items.forEach((it, k) => {
       const d = shortest(k - pos), ad = Math.abs(d), dy = d * ROW;
-      const off = ARC - Math.sqrt(Math.max(0, ARC * ARC - dy * dy));        // how far this row curves away
-      const o = ad <= 1 ? 1 - 0.45 * ad : Math.max(0, 0.55 * (1 - (ad - 1) / 0.7));
-      it.style.transform = `translate(${side === "left" ? -off : off}px, ${HEIGHT / 2 + dy}px) translateY(-50%)`;
+      const off = g.arc - Math.sqrt(Math.max(0, g.arc * g.arc - dy * dy));     // how far this row curves away
+      let o;
+      if (settings.bottom) o = d > 0 ? Math.max(0, 1 - d * 2) : ad <= 1 ? 1 - 0.4 * ad : Math.max(0, 0.6 - 0.3 * (ad - 1));
+      else o = ad <= 1 ? 1 - 0.45 * ad : Math.max(0, 0.55 * (1 - (ad - 1) / 0.7));
+      it.style.transform = `translate(${side === "left" ? -off : off}px, ${g.cy + dy}px) translateY(-50%)`;
       it.style.opacity = o;
       it.style.visibility = o <= 0 ? "hidden" : "visible";
-      it.style.pointerEvents = o < 0.3 ? "none" : "";
       it.classList.toggle("selected", k === sel);
     });
     el.setAttribute("aria-valuetext", options[sel] ? String(getLabel(options[sel])) : "");
-    updateHighlight();
   }
 
   // The selection follows the wheel live, so the chord updates while you spin.
@@ -157,10 +162,11 @@ function createWheel(container, side, getLabel, getSublabel, onChange) {
   }
   const goTo = (i) => animateTo(pos + shortest(i - pos));
 
-  // ----- tap the selected row: dropdown with the full names -----
+  // ----- the full list, with the spelled-out names -----
   const closeDropdown = () => { if (dropdown) { dropdown.remove(); dropdown = null; } };
   const openDropdown = () => {
     closeDropdown();
+    openedAt = performance.now();
     dropdown = document.createElement("div");
     dropdown.className = "dropdown";
     options.forEach((opt, i) => {
@@ -168,14 +174,26 @@ function createWheel(container, side, getLabel, getSublabel, onChange) {
       const sub = getSublabel(opt);
       b.innerHTML = `<span>${getLabel(opt)}</span>` + (sub ? `<small>${sub}</small>` : "");
       if (i === lastIndex) b.classList.add("selected");
-      b.onclick = () => { goTo(i); closeDropdown(); };
+      // A quick tap on a phone is followed by a late "click" at the same spot, which would land on
+      // the row that just appeared under the finger. Ignore clicks right after opening.
+      b.onclick = () => { if (performance.now() - openedAt < 400) return; goTo(i); closeDropdown(); };
       dropdown.appendChild(b);
     });
     container.appendChild(dropdown);
-    const sel = dropdown.querySelector(".selected");
-    if (sel) sel.scrollIntoView({ block: "center" });
+    const selEl = dropdown.querySelector(".selected");
+    if (selEl) selEl.scrollIntoView({ block: "center" });
   };
   document.addEventListener("click", (e) => { if (dropdown && !container.contains(e.target)) closeDropdown(); });
+
+  // A small round button on the outer side of the wheel opens the same list.
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "wheel-btn";
+  btn.setAttribute("aria-label", "Show all choices");
+  btn.title = "Show all";
+  btn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+  btn.addEventListener("click", openDropdown);
+  container.appendChild(btn);
 
   // ----- dragging: vertical, one row per ROW pixels -----
   let drag = null;
@@ -196,9 +214,10 @@ function createWheel(container, side, getLabel, getSublabel, onChange) {
   const release = () => {
     if (!drag) return;
     const d = drag; drag = null;
-    if (!d.moved) {                                    // a tap: middle band opens the list, upper/lower band steps one row
-      const row = Math.round((d.y - el.getBoundingClientRect().top - HEIGHT / 2) / ROW);
-      if (row === 0) openDropdown(); else animateTo(Math.round(pos) + Math.max(-1, Math.min(1, row)));
+    if (!d.moved) {          // a tap: the selected row opens the list, a row above or below steps to it
+      const row = Math.round((d.y - el.getBoundingClientRect().top - geom().cy) / ROW);
+      if (row === 0) openDropdown();
+      else animateTo(Math.round(pos) + Math.max(settings.bottom ? -2 : -1, Math.min(settings.bottom ? 0 : 1, row)));
       return;
     }
     const s = d.samples, first = s[0], last = s[s.length - 1];
@@ -229,6 +248,7 @@ function createWheel(container, side, getLabel, getSublabel, onChange) {
       });
       update();
     },
+    update,
   };
 }
 
@@ -239,24 +259,38 @@ const rootWheel = createWheel($("rootPicker"), "left", rootLabel, () => "",
 const qualityWheel = createWheel($("qualityPicker"), "right", (q) => q.abbr, (q) => q.full,
   (q) => { qualityKey = q.key; render(); });
 
-// The highlight box hugs the selected note and chord type, so it is only as wide as it needs to be.
+// The highlight box is a fixed size: wide enough for the longest note plus the longest chord type.
 const hl = document.querySelector(".hl");
+let maxWidths = null;
+function measure(labels) {
+  const probe = document.createElement("span");
+  probe.className = "citem selected";
+  probe.style.cssText = "visibility:hidden;left:0;right:auto";
+  document.body.appendChild(probe);
+  const widest = Math.max(...labels.map((l) => { probe.textContent = l; return probe.getBoundingClientRect().width; }));
+  probe.remove();
+  return widest;
+}
 function updateHighlight() {
-  const a = document.querySelector("#rootPicker .citem.selected"), b = document.querySelector("#qualityPicker .citem.selected");
-  if (!a || !b) return;
-  const base = $("pickers").getBoundingClientRect(), ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
-  const PAD = 12;
-  hl.style.left = ra.left - base.left - PAD + "px";
-  hl.style.width = rb.right - ra.left + 2 * PAD + "px";
+  if (!maxWidths) maxWidths = {
+    note: measure(ROOTS.map((r) => fmt(r.sharp) + "/" + fmt(r.flat))),
+    quality: measure(QUALITIES.map((q) => q.abbr)),
+  };
+  const TEXT_PAD = 12, PAD = 10;      // text inset inside each wheel, extra room inside the box
+  const base = $("pickers").getBoundingClientRect(), a = $("rootPicker").getBoundingClientRect(), b = $("qualityPicker").getBoundingClientRect();
+  const left = a.right - TEXT_PAD - maxWidths.note - PAD, right = b.left + TEXT_PAD + maxWidths.quality + PAD;
+  hl.style.left = left - base.left + "px";
+  hl.style.width = right - left + "px";
 }
 new ResizeObserver(updateHighlight).observe($("pickers"));
-if (document.fonts) document.fonts.ready.then(updateHighlight);
+if (document.fonts) document.fonts.ready.then(() => { maxWidths = null; updateHighlight(); });
 
 function refreshWheels() {
   rootWheel.setOptions(ROOTS, rootIndex);
   const list = availableQualities();
   if (!list.some((q) => q.key === qualityKey)) qualityKey = "maj";   // e.g. Beginner mode hides this chord
   qualityWheel.setOptions(list, list.findIndex((q) => q.key === qualityKey));
+  updateHighlight();
 }
 
 // ---------- Menu & toggles ----------
@@ -271,6 +305,9 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !menu.hi
 
 function applySettings() {
   document.documentElement.dataset.theme = settings.dark ? "dark" : "light";
+  document.documentElement.dataset.layout = settings.bottom ? "bottom" : "middle";
+  maxWidths = null;                       // the selected text size depends on the layout
+  $("optBottom").checked = settings.bottom;
   $("themeBtn").setAttribute("aria-label", settings.dark ? "Switch to light mode" : "Switch to dark mode");
   $("themeBtn").title = settings.dark ? "Light mode" : "Dark mode";
   $("optBeginner").checked = settings.beginner;
@@ -288,7 +325,7 @@ function applySettings() {
 
 const bind = (id, key) => $(id).addEventListener("change", (e) => { settings[key] = e.target.checked; saveSettings(); applySettings(); });
 bind("optBeginner", "beginner"); bind("optAvoid", "avoidDouble");
-bind("optOdd", "avoidOdd");
+bind("optOdd", "avoidOdd"); bind("optBottom", "bottom");
 $("themeBtn").addEventListener("click", () => { settings.dark = !settings.dark; saveSettings(); applySettings(); });
 document.querySelectorAll("#accidentals button").forEach((b) =>
   b.addEventListener("click", () => { settings.accidentals = b.dataset.mode; saveSettings(); applySettings(); }));
