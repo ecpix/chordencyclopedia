@@ -69,7 +69,7 @@ function drawPiano(root, notes) {
 
 // ---------- Settings ----------
 const STORAGE_KEY = "chordencyclopedia.settings";
-const settings = { dark: false, beginner: false, avoidDouble: false, avoidOdd: true, ipod: false, accidentals: "mix" };
+const settings = { dark: false, beginner: false, avoidDouble: false, avoidOdd: true, accidentals: "mix" };
 try { Object.assign(settings, JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}")); } catch (e) {}
 const saveSettings = () => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); } catch (e) {} };
 
@@ -103,21 +103,60 @@ function render() {
   document.getElementById("aliases").textContent = aliases.length ? "Also written as: " + aliases.join(" · ") : "";
 }
 
-// ---------- List wheel ----------
-// Combination-lock style wheel. Scroll to pick; tap the selected item to open a dropdown.
-function createWheel(container, getLabel, getSublabel, onChange) {
-  const ITEM_H = 48;
-  const wheel = document.createElement("div");
-  wheel.className = "wheel";
-  container.appendChild(wheel);
+// ---------- Curved wheel ----------
+// An endless wheel that shows three rows (previous, selected, next). The rows are laid out along a
+// big circle, so the selected row sits nearest the middle of the screen and its neighbours are
+// indented away from it. Drag, scroll or use the arrow keys to spin; tap the selected row for a list.
+function createWheel(container, side, getLabel, getSublabel, onChange) {
+  const ROW = 48, HEIGHT = 144, ARC = 100;   // row spacing, wheel height, radius of the circle the rows follow
+  const el = document.createElement("div");
+  el.className = "cwheel " + side;
+  el.tabIndex = 0;
+  el.setAttribute("role", "slider");
+  el.setAttribute("aria-label", container.getAttribute("aria-label") || "Wheel");
+  container.appendChild(el);
 
-  let options = [], items = [], index = 0, timer = null, dropdown = null;
-  const mark = () => items.forEach((el, j) => el.classList.toggle("selected", j === index));
-  const select = (i, scroll) => {
-    index = i; mark();
-    if (scroll) wheel.scrollTo({ top: i * ITEM_H, behavior: "smooth" });
-    onChange(options[i]);
-  };
+  let options = [], items = [], pos = 0, lastIndex = 0, anim = 0, dropdown = null;
+  const len = () => options.length;
+  const mod = (x, n) => ((x % n) + n) % n;
+  const shortest = (d) => { d = mod(d, len()); return d > len() / 2 ? d - len() : d; };
+
+  function update() {
+    const sel = mod(Math.round(pos), len());
+    items.forEach((it, k) => {
+      const d = shortest(k - pos), ad = Math.abs(d), dy = d * ROW;
+      const off = ARC - Math.sqrt(Math.max(0, ARC * ARC - dy * dy));        // how far this row curves away
+      const o = ad <= 1 ? 1 - 0.45 * ad : Math.max(0, 0.55 * (1 - (ad - 1) / 0.7));
+      it.style.transform = `translate(${side === "left" ? -off : off}px, ${HEIGHT / 2 + dy}px) translateY(-50%)`;
+      it.style.opacity = o;
+      it.style.visibility = o <= 0 ? "hidden" : "visible";
+      it.style.pointerEvents = o < 0.3 ? "none" : "";
+      it.classList.toggle("selected", k === sel);
+    });
+    el.setAttribute("aria-valuetext", options[sel] ? String(getLabel(options[sel])) : "");
+  }
+
+  // The selection follows the wheel live, so the chord updates while you spin.
+  function setPos(p) {
+    pos = p;
+    update();
+    const idx = mod(Math.round(pos), len());
+    if (idx !== lastIndex) { lastIndex = idx; onChange(options[idx]); }
+  }
+
+  function animateTo(target, dur = 220) {
+    cancelAnimationFrame(anim);
+    const from = pos, t0 = performance.now();
+    const frame = (now) => {
+      const t = Math.min(1, (now - t0) / dur);
+      setPos(from + (target - from) * (1 - Math.pow(1 - t, 3)));
+      if (t < 1) anim = requestAnimationFrame(frame);
+    };
+    anim = requestAnimationFrame(frame);
+  }
+  const goTo = (i) => animateTo(pos + shortest(i - pos));
+
+  // ----- tap the selected row: dropdown with the full names -----
   const closeDropdown = () => { if (dropdown) { dropdown.remove(); dropdown = null; } };
   const openDropdown = () => {
     closeDropdown();
@@ -127,152 +166,44 @@ function createWheel(container, getLabel, getSublabel, onChange) {
       const b = document.createElement("button");
       const sub = getSublabel(opt);
       b.innerHTML = `<span>${getLabel(opt)}</span>` + (sub ? `<small>${sub}</small>` : "");
-      if (i === index) b.classList.add("selected");
-      b.onclick = () => { select(i, true); closeDropdown(); };
+      if (i === lastIndex) b.classList.add("selected");
+      b.onclick = () => { goTo(i); closeDropdown(); };
       dropdown.appendChild(b);
     });
     container.appendChild(dropdown);
     const sel = dropdown.querySelector(".selected");
     if (sel) sel.scrollIntoView({ block: "center" });
   };
-
-  wheel.addEventListener("scroll", () => {
-    clearTimeout(timer);
-    timer = setTimeout(() => {
-      const i = Math.max(0, Math.min(options.length - 1, Math.round(wheel.scrollTop / ITEM_H)));
-      if (i !== index) select(i, false);
-    }, 80);
-  });
   document.addEventListener("click", (e) => { if (dropdown && !container.contains(e.target)) closeDropdown(); });
 
-  // Replace the wheel's contents (used when settings change labels or the option list). Does not fire onChange.
-  return {
-    setOptions(newOptions, newIndex) {
-      closeDropdown();
-      options = newOptions; index = newIndex;
-      wheel.innerHTML = "";
-      items = options.map((opt, i) => {
-        const el = document.createElement("div");
-        el.className = "wheel-item";
-        el.textContent = getLabel(opt);
-        el.addEventListener("click", () => (i === index ? openDropdown() : select(i, true)));
-        wheel.appendChild(el);
-        return el;
-      });
-      mark();
-      wheel.scrollTop = index * ITEM_H;
-    },
-    layout() {},
-  };
-}
-
-// ---------- iPod-style round wheel ----------
-// A ring whose centre sits on the screen edge, so only a half circle shows. The "left" wheel puts its
-// selected item at 3 o'clock; the "right" wheel is its mirror image (9 o'clock). Drag around the ring to spin.
-function createRoundWheel(container, side, getLabel, loop, onChange) {
-  const STEP = 30;          // degrees between items
-  const FADE = 80;          // items fade out as they near the top and bottom
-  const dir = side === "left" ? 1 : -1;
-  const el = document.createElement("div");
-  el.className = "rwheel " + side;
-  el.tabIndex = 0;
-  el.setAttribute("role", "slider");
-  el.setAttribute("aria-label", container.getAttribute("aria-label") || "Wheel");
-  const ring = document.createElement("div"); ring.className = "rring";
-  const markEl = document.createElement("div"); markEl.className = "rmark";
-  el.append(ring, markEl);
-  container.appendChild(el);
-
-  let options = [], items = [], pos = 0, lastIndex = 0, R = 130, anim = 0;
-  const N = () => options.length;
-  const mod = (a, n) => ((a % n) + n) % n;
-
-  function layout() {
-    const w = container.parentElement.parentElement.clientWidth || 360;   // width of the whole picker row
-    R = Math.min(150, Math.round(w * 0.42));
-    el.style.width = R + "px"; el.style.height = 2 * R + "px";
-    ring.style.width = ring.style.height = 2 * R + "px";
-    const hole = R * 0.34;
-    markEl.style.top = R - 20 + "px";
-    markEl.style[side === "left" ? "left" : "right"] = hole + 3 + "px";
-    markEl.style.width = R - hole - 6 + "px";
-    update();
-  }
-
-  function update() {
-    const n = N(), rT = R * 0.67, sel = mod(Math.round(pos), n);
-    items.forEach((it, k) => {
-      let d = k - pos;
-      if (loop) { d = mod(d, n); if (d > n / 2) d -= n; }
-      const phi = d * STEP, a = (phi * Math.PI) / 180;
-      const x = side === "left" ? rT * Math.cos(a) : R - rT * Math.cos(a);
-      const y = R + rT * Math.sin(a);
-      const o = Math.max(0, 1 - Math.pow(Math.abs(phi) / FADE, 2.2));
-      it.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
-      it.style.opacity = o;
-      it.style.pointerEvents = o < 0.15 ? "none" : "";
-      it.classList.toggle("selected", k === sel);
-    });
-    el.setAttribute("aria-valuetext", options[sel] ? getLabel(options[sel]) : "");
-  }
-
-  function setPos(p) {
-    pos = loop ? p : Math.max(0, Math.min(N() - 1, p));
-    update();
-    const idx = mod(Math.round(pos), N());
-    if (idx !== lastIndex) { lastIndex = idx; onChange(options[idx]); }
-  }
-
-  function animateTo(target, dur = 220) {
-    cancelAnimationFrame(anim);
-    if (!loop) target = Math.max(0, Math.min(N() - 1, target));
-    const from = pos, t0 = performance.now();
-    const frame = (now) => {
-      const t = Math.min(1, (now - t0) / dur);
-      setPos(from + (target - from) * (1 - Math.pow(1 - t, 3)));
-      if (t < 1) anim = requestAnimationFrame(frame);
-    };
-    anim = requestAnimationFrame(frame);
-  }
-
-  // Dragging: follow the finger's angle around the wheel's centre.
+  // ----- dragging: vertical, one row per ROW pixels -----
   let drag = null;
-  const angle = (e) => (Math.atan2(e.clientY - drag.cy, (e.clientX - drag.cx) * dir) * 180) / Math.PI;
   el.addEventListener("pointerdown", (e) => {
     cancelAnimationFrame(anim);
     el.setPointerCapture(e.pointerId);
-    const r = el.getBoundingClientRect();
-    drag = { cx: side === "left" ? r.left : r.right, cy: r.top + R, x: e.clientX, y: e.clientY, moved: false,
-             item: e.target.closest(".ritem"), samples: [] };
-    drag.last = angle(e);
+    drag = { x: e.clientX, y: e.clientY, last: e.clientY, moved: false, item: e.target.closest(".citem"), samples: [] };
   });
   el.addEventListener("pointermove", (e) => {
     if (!drag) return;
     if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 5) drag.moved = true;
     if (!drag.moved) return;
-    const a = angle(e);
-    let da = a - drag.last;
-    if (da > 180) da -= 360; if (da < -180) da += 360;
-    drag.last = a;
-    setPos(pos - da / STEP);
-    drag.samples.push({ t: performance.now(), a: pos });
+    setPos(pos - (e.clientY - drag.last) / ROW);
+    drag.last = e.clientY;
+    drag.samples.push({ t: performance.now(), p: pos });
     if (drag.samples.length > 6) drag.samples.shift();
   });
   const release = () => {
     if (!drag) return;
     const d = drag; drag = null;
-    if (!d.moved) {                                    // a tap: jump to the tapped item
-      if (d.item) {
-        const k = items.indexOf(d.item);
-        let delta = k - pos;
-        if (loop) { delta = mod(delta, N()); if (delta > N() / 2) delta -= N(); }
-        animateTo(pos + delta);
-      }
+    if (!d.moved) {                                    // a tap
+      if (!d.item) return;
+      const k = items.indexOf(d.item);
+      if (k === lastIndex) openDropdown(); else goTo(k);
       return;
     }
-    const s = d.samples, first = s[0], lastS = s[s.length - 1];
-    const v = first && lastS && lastS.t > first.t ? (lastS.a - first.a) / (lastS.t - first.t) : 0;   // items per ms
-    animateTo(Math.round(pos + Math.max(-3, Math.min(3, v * 160))), 260);
+    const s = d.samples, first = s[0], last = s[s.length - 1];
+    const v = first && last && last.t > first.t ? (last.p - first.p) / (last.t - first.t) : 0;   // rows per ms
+    animateTo(Math.round(pos + Math.max(-4, Math.min(4, v * 160))), 260);
   };
   el.addEventListener("pointerup", release);
   el.addEventListener("pointercancel", release);
@@ -282,51 +213,38 @@ function createRoundWheel(container, side, getLabel, loop, onChange) {
     if (step) { e.preventDefault(); animateTo(Math.round(pos) + step); }
   });
 
+  // Replace the wheel's contents (used when settings change labels or the option list). Does not fire onChange.
   return {
     setOptions(newOptions, newIndex) {
       cancelAnimationFrame(anim);
+      closeDropdown();
       options = newOptions; pos = lastIndex = newIndex;
       items.forEach((it) => it.remove());
       items = options.map((opt) => {
         const it = document.createElement("div");
-        it.className = "ritem";
+        it.className = "citem";
         it.textContent = getLabel(opt);
         el.appendChild(it);
         return it;
       });
-      layout();
+      update();
     },
-    layout,
   };
 }
 
 // ---------- Wheels ----------
-let rootWheel = null, qualityWheel = null, mountedIpod = null;
 const $ = (id) => document.getElementById(id);
-
-function mountWheels() {
-  $("rootPicker").innerHTML = ""; $("qualityPicker").innerHTML = "";
-  $("pickers").classList.toggle("ipod", settings.ipod);
-  const onRoot = (r) => { rootIndex = ROOTS.indexOf(r); render(); };
-  const onQuality = (q) => { qualityKey = q.key; render(); };
-  if (settings.ipod) {
-    rootWheel = createRoundWheel($("rootPicker"), "left", rootLabel, true, onRoot);
-    qualityWheel = createRoundWheel($("qualityPicker"), "right", (q) => q.abbr, false, onQuality);
-  } else {
-    rootWheel = createWheel($("rootPicker"), rootLabel, () => "", onRoot);
-    qualityWheel = createWheel($("qualityPicker"), (q) => q.abbr, (q) => q.full, onQuality);
-  }
-  mountedIpod = settings.ipod;
-}
+const rootWheel = createWheel($("rootPicker"), "left", rootLabel, () => "",
+  (r) => { rootIndex = ROOTS.indexOf(r); render(); });
+const qualityWheel = createWheel($("qualityPicker"), "right", (q) => q.abbr, (q) => q.full,
+  (q) => { qualityKey = q.key; render(); });
 
 function refreshWheels() {
-  if (mountedIpod !== settings.ipod) mountWheels();
   rootWheel.setOptions(ROOTS, rootIndex);
   const list = availableQualities();
   if (!list.some((q) => q.key === qualityKey)) qualityKey = "maj";   // e.g. Beginner mode hides this chord
   qualityWheel.setOptions(list, list.findIndex((q) => q.key === qualityKey));
 }
-new ResizeObserver(() => { if (rootWheel) { rootWheel.layout(); qualityWheel.layout(); } }).observe($("pickers"));
 
 // ---------- Menu & toggles ----------
 const menu = $("menu"), scrim = $("scrim"), menuBtn = $("menuBtn");
@@ -342,7 +260,6 @@ function applySettings() {
   document.documentElement.dataset.theme = settings.dark ? "dark" : "light";
   $("optDark").checked = settings.dark;
   $("optBeginner").checked = settings.beginner;
-  $("optIpod").checked = settings.ipod;
   // Beginner mode always uses the simplest spellings, so those switches show on and are locked.
   $("optAvoid").checked = settings.beginner || settings.avoidDouble;
   $("optOdd").checked = settings.beginner || settings.avoidOdd;
@@ -357,7 +274,7 @@ function applySettings() {
 
 const bind = (id, key) => $(id).addEventListener("change", (e) => { settings[key] = e.target.checked; saveSettings(); applySettings(); });
 bind("optDark", "dark"); bind("optBeginner", "beginner"); bind("optAvoid", "avoidDouble");
-bind("optOdd", "avoidOdd"); bind("optIpod", "ipod");
+bind("optOdd", "avoidOdd");
 document.querySelectorAll("#accidentals button").forEach((b) =>
   b.addEventListener("click", () => { settings.accidentals = b.dataset.mode; saveSettings(); applySettings(); }));
 

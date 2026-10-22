@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Chord Encyclopedia</title>
-  <link rel="stylesheet" href="style.css?v=4">
+  <link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
   <header class="topbar">
@@ -31,10 +31,6 @@
       <span><b>Dark mode</b></span>
       <input type="checkbox" id="optDark" role="switch">
     </label>
-    <label class="switch-row">
-      <span><b>iPod-style wheels</b><small>Experimental. Spin the wheels with your thumb.</small></span>
-      <input type="checkbox" id="optIpod" role="switch">
-    </label>
     <label class="switch-row" id="rowAvoid">
       <span><b>Avoid double sharps &amp; flats</b><small>Shows G instead of Fx. The formula keeps the exact spelling.</small></span>
       <input type="checkbox" id="optAvoid" role="switch">
@@ -47,8 +43,9 @@
 
   <main>
     <section class="pickers" id="pickers">
+      <div class="hl" aria-hidden="true"></div>
       <div class="pickcol">
-        <div class="picker" id="rootPicker" aria-label="Root note"></div>
+        <div class="picker" id="rootPicker" data-side="left" aria-label="Root note"></div>
         <div class="accidentals" id="accidentals" role="group" aria-label="Sharps or flats">
           <button data-mode="mix" aria-pressed="true" title="Auto: mixed sharps and flats" aria-label="Auto">♯♭</button>
           <button data-mode="sharp" aria-pressed="false" title="Use sharps" aria-label="Sharps">♯</button>
@@ -56,7 +53,7 @@
         </div>
       </div>
       <div class="pickcol">
-        <div class="picker" id="qualityPicker" aria-label="Chord type"></div>
+        <div class="picker" id="qualityPicker" data-side="right" aria-label="Chord type"></div>
       </div>
     </section>
 
@@ -75,7 +72,7 @@
     <p>© 2026 <a href="https://www.skool.com/ecpiano-1707" target="_blank" rel="noopener noreferrer">ecpiano</a>. All rights reserved.</p>
   </footer>
 
-  <script src="chords.js?v=4"></script>
-  <script src="app.js?v=4"></script>
+  <script src="chords.js?v=5"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>

@@ -48,29 +48,31 @@ h1 { margin: 0; font-size: 1.6rem; color: var(--heading); font-weight: 700; }
 .switch-row input:checked::after { transform: translateX(20px); }
 .switch-row input:focus-visible, button:focus-visible, a:focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; }
 
-.pickers { display: grid; grid-template-columns: 1fr 2fr; gap: 12px; max-width: 520px; margin: 0 auto; }
+.pickers { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; max-width: 520px; margin: 0 auto; }
 .pickcol { min-width: 0; }
 .picker { position: relative; min-width: 0; }
-.wheel {
-  height: 144px; overflow-y: scroll; scroll-snap-type: y mandatory; background: var(--panel);
-  border-radius: 14px; scrollbar-width: none; padding: 48px 0;
-  -webkit-mask-image: linear-gradient(transparent, #000 30%, #000 70%, transparent);
-  mask-image: linear-gradient(transparent, #000 30%, #000 70%, transparent);
-}
-.wheel::-webkit-scrollbar { display: none; }
-.wheel-item { height: 48px; display: flex; align-items: center; justify-content: center; scroll-snap-align: center;
-  color: var(--muted); font-size: 1.05rem; cursor: pointer; text-align: center; padding: 0 8px; white-space: nowrap; }
-.wheel-item.selected { color: var(--text); font-weight: 600; font-size: 1.2rem; }
-.picker::after { content: ""; position: absolute; left: 6px; right: 6px; top: 48px; height: 48px;
-  border: 2px solid var(--ring); border-radius: 10px; pointer-events: none; }
-.dropdown { position: absolute; z-index: 10; left: 0; right: 0; top: 0; max-height: 300px; overflow-y: auto; min-width: 150px;
+
+/* Curved wheels: each column is a slice of a big wheel. The selected row sits nearest the middle,
+   the rows above and below are indented away from it. */
+.cwheel { position: relative; height: 144px; overflow: hidden; background: var(--panel); touch-action: none;
+  user-select: none; -webkit-user-select: none; cursor: ns-resize; outline-offset: -2px; }
+.cwheel.left  { border-radius: 14px 26px 26px 14px / 14px 72px 72px 14px; }
+.cwheel.right { border-radius: 26px 14px 14px 26px / 72px 14px 14px 72px; }
+.citem { position: absolute; top: 0; white-space: nowrap; color: var(--muted); font-size: 1.05rem; cursor: pointer; will-change: transform, opacity; }
+.cwheel.left .citem { right: 18px; }
+.cwheel.right .citem { left: 18px; }
+.citem.selected { color: var(--text); font-weight: 600; font-size: 1.2rem; }
+/* One highlight box spanning both wheels, so the note and chord type read together. */
+.hl { position: absolute; left: 3px; right: 3px; top: 48px; height: 48px; border: 2px solid var(--ring); border-radius: 12px; pointer-events: none; z-index: 2; }
+.dropdown { position: absolute; z-index: 10; left: 0; top: 0; width: 100%; min-width: 170px; max-height: 300px; overflow-y: auto;
   background: var(--bg); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 24px var(--shadow); }
 .dropdown button { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; width: 100%; padding: 12px; background: none;
   border: 0; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
 .dropdown button small { color: var(--muted); font-size: .8rem; }
+.picker[data-side="right"] .dropdown { left: auto; right: 0; width: min(290px, calc(100vw - 32px)); }
 .dropdown button:hover, .dropdown button.selected { background: var(--panel); }
 
-.accidentals { display: flex; margin: 8px 0 0; width: 100%; background: var(--panel); border-radius: 9px; padding: 2px; }
+.accidentals { display: flex; margin: 8px 0 0; width: 100%; max-width: 110px; background: var(--panel); border-radius: 9px; padding: 2px; }
 .accidentals button { flex: 1; border: 0; background: none; color: var(--muted); font: inherit; font-size: .9rem; line-height: 1;
   height: 26px; padding: 0; border-radius: 7px; cursor: pointer; }
 .accidentals button[aria-pressed="true"] { background: var(--bg); color: var(--heading); font-weight: 700; box-shadow: 0 1px 2px var(--shadow); }
@@ -104,22 +106,6 @@ footer p { margin: 4px 0 0; }
 footer a { color: inherit; text-decoration: none; }
 footer a:hover { color: var(--heading); }
 
-/* ---- iPod-style round wheels ---- */
-.pickers.ipod { grid-template-columns: 1fr 1fr; gap: 0; max-width: 560px; }
-.pickers.ipod .picker::after { display: none; }
-.pickers.ipod .accidentals { margin-left: 16px; width: 96px; }
-.rwheel { position: relative; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; outline-offset: -2px; }
-.rwheel.right { margin-left: auto; }
-.rring { position: absolute; top: 0; border-radius: 50%; background: radial-gradient(circle, var(--bg) 0 33.5%, var(--panel) 34.5% 100%); }
-.rwheel.left .rring { left: 0; transform: translateX(-50%); }
-.rwheel.right .rring { right: 0; transform: translateX(50%); }
-.rmark { position: absolute; height: 40px; border: 2px solid var(--ring); border-radius: 10px; pointer-events: none; }
-.ritem { position: absolute; left: 0; top: 0; white-space: nowrap; color: var(--muted); font-size: .95rem; will-change: transform, opacity; }
-.ritem.selected { color: var(--text); font-weight: 600; font-size: 1.05rem; }
-
-@media (max-width: 600px) {
-  .pickers.ipod { margin-left: -16px; margin-right: -16px; }
-}
 @media (max-width: 420px) {
   h1 { font-size: 1.35rem; }
   .result h2 { font-size: 1.9rem; }
