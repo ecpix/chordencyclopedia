@@ -108,7 +108,7 @@ function render() {
 // big circle, so the selected row sits nearest the middle of the screen and its neighbours are
 // indented away from it. Drag, scroll or use the arrow keys to spin; tap the selected row for a list.
 function createWheel(container, side, getLabel, getSublabel, onChange) {
-  const ROW = 48, HEIGHT = 144, ARC = 100;   // row spacing, wheel height, radius of the circle the rows follow
+  const ROW = 48, HEIGHT = 144, ARC = 86;   // row spacing, wheel height, radius of the circle the rows follow
   const el = document.createElement("div");
   el.className = "cwheel " + side;
   el.tabIndex = 0;
@@ -134,6 +134,7 @@ function createWheel(container, side, getLabel, getSublabel, onChange) {
       it.classList.toggle("selected", k === sel);
     });
     el.setAttribute("aria-valuetext", options[sel] ? String(getLabel(options[sel])) : "");
+    updateHighlight();
   }
 
   // The selection follows the wheel live, so the chord updates while you spin.
@@ -181,7 +182,7 @@ function createWheel(container, side, getLabel, getSublabel, onChange) {
   el.addEventListener("pointerdown", (e) => {
     cancelAnimationFrame(anim);
     el.setPointerCapture(e.pointerId);
-    drag = { x: e.clientX, y: e.clientY, last: e.clientY, moved: false, item: e.target.closest(".citem"), samples: [] };
+    drag = { x: e.clientX, y: e.clientY, last: e.clientY, moved: false, samples: [] };
   });
   el.addEventListener("pointermove", (e) => {
     if (!drag) return;
@@ -195,10 +196,9 @@ function createWheel(container, side, getLabel, getSublabel, onChange) {
   const release = () => {
     if (!drag) return;
     const d = drag; drag = null;
-    if (!d.moved) {                                    // a tap
-      if (!d.item) return;
-      const k = items.indexOf(d.item);
-      if (k === lastIndex) openDropdown(); else goTo(k);
+    if (!d.moved) {                                    // a tap: middle band opens the list, upper/lower band steps one row
+      const row = Math.round((d.y - el.getBoundingClientRect().top - HEIGHT / 2) / ROW);
+      if (row === 0) openDropdown(); else animateTo(Math.round(pos) + Math.max(-1, Math.min(1, row)));
       return;
     }
     const s = d.samples, first = s[0], last = s[s.length - 1];
@@ -239,6 +239,19 @@ const rootWheel = createWheel($("rootPicker"), "left", rootLabel, () => "",
 const qualityWheel = createWheel($("qualityPicker"), "right", (q) => q.abbr, (q) => q.full,
   (q) => { qualityKey = q.key; render(); });
 
+// The highlight box hugs the selected note and chord type, so it is only as wide as it needs to be.
+const hl = document.querySelector(".hl");
+function updateHighlight() {
+  const a = document.querySelector("#rootPicker .citem.selected"), b = document.querySelector("#qualityPicker .citem.selected");
+  if (!a || !b) return;
+  const base = $("pickers").getBoundingClientRect(), ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+  const PAD = 12;
+  hl.style.left = ra.left - base.left - PAD + "px";
+  hl.style.width = rb.right - ra.left + 2 * PAD + "px";
+}
+new ResizeObserver(updateHighlight).observe($("pickers"));
+if (document.fonts) document.fonts.ready.then(updateHighlight);
+
 function refreshWheels() {
   rootWheel.setOptions(ROOTS, rootIndex);
   const list = availableQualities();
@@ -258,7 +271,8 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !menu.hi
 
 function applySettings() {
   document.documentElement.dataset.theme = settings.dark ? "dark" : "light";
-  $("optDark").checked = settings.dark;
+  $("themeBtn").setAttribute("aria-label", settings.dark ? "Switch to light mode" : "Switch to dark mode");
+  $("themeBtn").title = settings.dark ? "Light mode" : "Dark mode";
   $("optBeginner").checked = settings.beginner;
   // Beginner mode always uses the simplest spellings, so those switches show on and are locked.
   $("optAvoid").checked = settings.beginner || settings.avoidDouble;
@@ -273,8 +287,9 @@ function applySettings() {
 }
 
 const bind = (id, key) => $(id).addEventListener("change", (e) => { settings[key] = e.target.checked; saveSettings(); applySettings(); });
-bind("optDark", "dark"); bind("optBeginner", "beginner"); bind("optAvoid", "avoidDouble");
+bind("optBeginner", "beginner"); bind("optAvoid", "avoidDouble");
 bind("optOdd", "avoidOdd");
+$("themeBtn").addEventListener("click", () => { settings.dark = !settings.dark; saveSettings(); applySettings(); });
 document.querySelectorAll("#accidentals button").forEach((b) =>
   b.addEventListener("click", () => { settings.accidentals = b.dataset.mode; saveSettings(); applySettings(); }));
 
