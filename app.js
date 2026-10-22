@@ -1,3 +1,4 @@
+// ---------- Keyboard ----------
 // Piano range: 2 octaves, from F up to the E two octaves later (24 keys).
 const OCTAVES = 2;
 const START_PC = 5; // F
@@ -78,34 +79,52 @@ function keyIndex(root, semis) {
   return idx;
 }
 
-function render(root, quality) {
+// ---------- Settings ----------
+const STORAGE_KEY = "chordencyclopedia.settings";
+const settings = { dark: false, beginner: false, avoidDouble: false, accidentals: "mix" };
+try { Object.assign(settings, JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}")); } catch (e) {}
+const saveSettings = () => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); } catch (e) {} };
+
+let rootIndex = 0;           // C
+let qualityKey = "min";      // start on C minor
+
+const rootName = (root) => root[settings.accidentals];
+const rootLabel = (root) =>
+  settings.accidentals === "mix" && root.sharp !== root.flat ? fmt(root.sharp) + "/" + fmt(root.flat) : fmt(rootName(root));
+const availableQualities = () =>
+  settings.beginner ? QUALITIES.filter((q) => q.beginner).sort((a, b) => a.beginner - b.beginner) : QUALITIES;
+const currentQuality = () => QUALITIES.find((q) => q.key === qualityKey);
+
+// ---------- Rendering ----------
+function render() {
+  const root = ROOTS[rootIndex], quality = currentQuality(), name = rootName(root);
+  const notes = buildChord(name, quality, settings.beginner || settings.avoidDouble);
+
   keys.forEach((_, i) => keys[i] && setKey(i, false));
-  const notes = buildChord(root, quality);
   notes.forEach((n) => setKey(keyIndex(root, n.semis), true, n.isRoot, n.name));
-  document.getElementById("chordTitle").textContent = chordTitle(root, quality);
+
+  document.getElementById("chordTitle").textContent = chordTitle(name, quality);
+  document.getElementById("chordFull").textContent = chordFullName(name, quality);
+  const cell = (n, text) => `<td${n.isRoot ? ' class="root"' : ""}><span>${text}</span></td>`;
   document.getElementById("noteTable").innerHTML =
-    "<tr><th>Note</th>" + notes.map((n) => `<td${n.isRoot ? ' class="root"' : ""}>${n.name}</td>`).join("") + "</tr>" +
-    "<tr><th>Degree</th>" + notes.map((n) => `<td${n.isRoot ? ' class="root"' : ""}>${n.degree}</td>`).join("") + "</tr>";
+    "<tr>" + notes.map((n) => cell(n, n.name)).join("") + "</tr>" +
+    (settings.beginner ? "" : "<tr>" + notes.map((n) => cell(n, n.degree)).join("") + "</tr>");
+  const aliases = settings.beginner ? [] : chordAliases(name, quality);
+  document.getElementById("aliases").textContent = aliases.length ? "Also written: " + aliases.join(" · ") : "";
 }
 
+// ---------- Wheel ----------
 // Combination-lock style wheel. Scroll to pick; tap the selected item to open a dropdown.
-function createWheel(container, options, getLabel, initialIndex, onChange) {
+function createWheel(container, getLabel, getSublabel, onChange) {
   const ITEM_H = 48;
   const wheel = document.createElement("div");
   wheel.className = "wheel";
-  const items = options.map((opt, i) => {
-    const el = document.createElement("div");
-    el.className = "wheel-item";
-    el.textContent = getLabel(opt);
-    wheel.appendChild(el);
-    return el;
-  });
   container.appendChild(wheel);
 
-  let index = initialIndex, timer = null, dropdown = null;
+  let options = [], items = [], index = 0, timer = null, dropdown = null;
+  const mark = () => items.forEach((el, j) => el.classList.toggle("selected", j === index));
   const select = (i, scroll) => {
-    index = i;
-    items.forEach((el, j) => el.classList.toggle("selected", j === i));
+    index = i; mark();
     if (scroll) wheel.scrollTo({ top: i * ITEM_H, behavior: "smooth" });
     onChange(options[i]);
   };
@@ -116,7 +135,8 @@ function createWheel(container, options, getLabel, initialIndex, onChange) {
     dropdown.className = "dropdown";
     options.forEach((opt, i) => {
       const b = document.createElement("button");
-      b.textContent = getLabel(opt);
+      const sub = getSublabel(opt);
+      b.innerHTML = `<span>${getLabel(opt)}</span>` + (sub ? `<small>${sub}</small>` : "");
       if (i === index) b.classList.add("selected");
       b.onclick = () => { select(i, true); closeDropdown(); };
       dropdown.appendChild(b);
@@ -133,16 +153,70 @@ function createWheel(container, options, getLabel, initialIndex, onChange) {
       if (i !== index) select(i, false);
     }, 80);
   });
-  items.forEach((el, i) => el.addEventListener("click", () => (i === index ? openDropdown() : select(i, true))));
   document.addEventListener("click", (e) => { if (dropdown && !container.contains(e.target)) closeDropdown(); });
 
-  select(initialIndex, false);
-  wheel.scrollTop = initialIndex * ITEM_H;
+  // Replace the wheel's contents (used when settings change labels or the option list). Does not fire onChange.
+  return {
+    setOptions(newOptions, newIndex) {
+      closeDropdown();
+      options = newOptions; index = newIndex;
+      wheel.innerHTML = "";
+      items = options.map((opt, i) => {
+        const el = document.createElement("div");
+        el.className = "wheel-item";
+        el.textContent = getLabel(opt);
+        el.addEventListener("click", () => (i === index ? openDropdown() : select(i, true)));
+        wheel.appendChild(el);
+        return el;
+      });
+      mark();
+      wheel.scrollTop = index * ITEM_H;
+    },
+  };
 }
 
-let currentRoot = ROOTS[0], currentQuality = QUALITIES[1]; // start on C minor
+const rootWheel = createWheel(document.getElementById("rootPicker"), rootLabel, () => "",
+  (r) => { rootIndex = ROOTS.indexOf(r); render(); });
+const qualityWheel = createWheel(document.getElementById("qualityPicker"), (q) => q.abbr, (q) => q.full,
+  (q) => { qualityKey = q.key; render(); });
+
+function refreshWheels() {
+  rootWheel.setOptions(ROOTS, rootIndex);
+  const list = availableQualities();
+  if (!list.some((q) => q.key === qualityKey)) qualityKey = "maj";   // e.g. Beginner mode hides this chord
+  qualityWheel.setOptions(list, list.findIndex((q) => q.key === qualityKey));
+}
+
+// ---------- Menu & toggles ----------
+const $ = (id) => document.getElementById(id);
+const menu = $("menu"), scrim = $("scrim"), menuBtn = $("menuBtn");
+
+function openMenu() { menu.hidden = scrim.hidden = false; menuBtn.setAttribute("aria-expanded", "true"); $("menuClose").focus(); }
+function closeMenu() { menu.hidden = scrim.hidden = true; menuBtn.setAttribute("aria-expanded", "false"); menuBtn.focus(); }
+menuBtn.addEventListener("click", openMenu);
+$("menuClose").addEventListener("click", closeMenu);
+scrim.addEventListener("click", closeMenu);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !menu.hidden) closeMenu(); });
+
+function applySettings() {
+  document.documentElement.dataset.theme = settings.dark ? "dark" : "light";
+  $("optDark").checked = settings.dark;
+  $("optBeginner").checked = settings.beginner;
+  // Beginner mode always avoids double sharps/flats, so that switch shows on and is locked.
+  $("optAvoid").checked = settings.beginner || settings.avoidDouble;
+  $("optAvoid").disabled = settings.beginner;
+  $("rowAvoid").classList.toggle("disabled", settings.beginner);
+  document.querySelectorAll("#accidentals button").forEach((b) =>
+    b.setAttribute("aria-pressed", String(b.dataset.mode === settings.accidentals)));
+  refreshWheels();
+  render();
+}
+
+$("optDark").addEventListener("change", (e) => { settings.dark = e.target.checked; saveSettings(); applySettings(); });
+$("optBeginner").addEventListener("change", (e) => { settings.beginner = e.target.checked; saveSettings(); applySettings(); });
+$("optAvoid").addEventListener("change", (e) => { settings.avoidDouble = e.target.checked; saveSettings(); applySettings(); });
+document.querySelectorAll("#accidentals button").forEach((b) =>
+  b.addEventListener("click", () => { settings.accidentals = b.dataset.mode; saveSettings(); applySettings(); }));
+
 buildPiano();
-createWheel(document.getElementById("rootPicker"), ROOTS, (r) => r.label, 0,
-  (r) => { currentRoot = r; render(currentRoot, currentQuality); });
-createWheel(document.getElementById("qualityPicker"), QUALITIES, (q) => q.label, 1,
-  (q) => { currentQuality = q; render(currentRoot, currentQuality); });
+applySettings();

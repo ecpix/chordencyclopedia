@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,22 +7,63 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main>
-    <h1>Chord Encyclopedia</h1>
-    <p class="subtitle">Pick a note and a chord quality to see it on the piano.</p>
+  <header class="topbar">
+    <div>
+      <h1>Chord Encyclopedia</h1>
+      <p class="subtitle">Pick a note and a chord to see it on the piano.</p>
+    </div>
+    <button class="menu-btn" id="menuBtn" aria-label="Open settings" aria-expanded="false" aria-controls="menu">
+      <span></span><span></span><span></span>
+    </button>
+  </header>
 
+  <div class="scrim" id="scrim" hidden></div>
+  <aside class="menu" id="menu" aria-label="Settings" hidden>
+    <div class="menu-head">
+      <h2>Settings</h2>
+      <button class="menu-close" id="menuClose" aria-label="Close settings">✕</button>
+    </div>
+    <label class="switch-row">
+      <span><b>Beginner mode</b><small>Basic chords only, no formula, simpler note names.</small></span>
+      <input type="checkbox" id="optBeginner" role="switch">
+    </label>
+    <label class="switch-row">
+      <span><b>Dark mode</b></span>
+      <input type="checkbox" id="optDark" role="switch">
+    </label>
+    <label class="switch-row" id="rowAvoid">
+      <span><b>Avoid double sharps &amp; flats</b><small>Shows G instead of Fx. The formula keeps the exact spelling.</small></span>
+      <input type="checkbox" id="optAvoid" role="switch">
+    </label>
+  </aside>
+
+  <main>
     <section class="pickers">
       <div class="picker" id="rootPicker" aria-label="Root note"></div>
-      <div class="picker" id="qualityPicker" aria-label="Chord quality"></div>
+      <div class="picker" id="qualityPicker" aria-label="Chord type"></div>
     </section>
+
+    <div class="accidentals" id="accidentals" role="group" aria-label="Sharps or flats">
+      <button data-mode="mix" aria-pressed="true">Auto</button>
+      <button data-mode="sharp" aria-pressed="false">♯</button>
+      <button data-mode="flat" aria-pressed="false">♭</button>
+    </div>
 
     <section class="result">
       <h2 id="chordTitle"></h2>
+      <p id="chordFull"></p>
       <table id="noteTable"></table>
     </section>
 
     <div id="piano"></div>
+    <p class="aliases" id="aliases"></p>
   </main>
+
+  <footer>
+    <a class="coffee" href="https://sociabuzz.com/ecpi_x/tribe" target="_blank" rel="noopener noreferrer">☕ Enjoying this? Show some love ❤️</a>
+    <p>© 2026 ecpix. All rights reserved.</p>
+  </footer>
+
   <script src="chords.js"></script>
   <script src="app.js"></script>
 </body>
